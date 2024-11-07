@@ -1,8 +1,12 @@
 CFLAGS=-Wall -g
 CC=gcc
-librhttp.so : tcp.o http.o
-	$(cc) tcp.o http.o -shared -o librhttp.so
+httpr : tcp.o http.o main.o
+	$(CC) tcp.o http.o main.o -o httpr
+libhttpr.so : tcp.o http.o
+	$(CC) tcp.o http.o -shared -o librhttp.so
 tcp.o : tcp.c
 	$(CC) $(CFLAGS) -fpic -c tcp.c
-tcp.o : http.c tcp.h
+http.o : http.c tcp.h
 	$(CC) $(CFLAGS) -fpic -c http.c
+main.o : main.c http.h tcp.h
+	$(CC) $(CFLAGS) main.c
