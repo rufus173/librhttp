@@ -1,7 +1,7 @@
 CFLAGS=-Wall -g
 CC=gcc
-httpr : tcp.o http.o main.o
-	$(CC) tcp.o http.o main.o -o httpr
+rufus-requests : tcp.o http.o main.o
+	$(CC) tcp.o http.o main.o -o rufus-requests
 libhttpr.so : tcp.o http.o
 	$(CC) tcp.o http.o -shared -o librhttp.so
 tcp.o : tcp.c
