@@ -1,3 +1,8 @@
+#ignore non extention files
+*
+!*.*
+!*/
+
 .*
 *.swp
 *.o
