@@ -7,7 +7,7 @@ struct http_connection {
 	char *version_string;
 	struct addrinfo *address_info;
 };
-struct header {
+struct http_header {
         char *field_name;
         char *field_value;
         void *next;
@@ -16,7 +16,7 @@ struct http_request {
 	char *method;
 	char *url;
 	char *body;
-	struct header *header;
+	struct http_header *header;
 };
 struct http_response {
 };

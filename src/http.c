@@ -13,7 +13,7 @@ if (result < 0){\
 	return return_val;\
 }
 //=================== structs ================
-struct header {
+struct http_header {
 	char *field_name;
 	char *field_value;
 	void *next;
@@ -27,7 +27,7 @@ struct http_request {
         char *method;
         char *url;
 	char *body;
-	struct header *header;
+	struct http_header *header;
 };
 struct http_response {
 	char *response_line;
@@ -123,13 +123,13 @@ int http_free_request(struct http_request *request){
 	free(request->method);
 	free(request->url);
 	//free the linked list of headers
-	struct header *node;
+	struct http_header *node;
 	node = request->header;
 	for (;;){
 		if (node == NULL){
 			break;
 		}
-		struct header *prev_node = node;
+		struct http_header *prev_node = node;
 		node = prev_node->next;
 		printf("freeing header \"%s: %s\"\n",prev_node->field_name,prev_node->field_value);
 		free(prev_node->field_name);
@@ -148,25 +148,25 @@ struct http_response *http_receive_response(struct http_connection *connection){
 }
 int http_request_append_header(struct http_request *request, char *field_name, char *field_value){
 	//find the tail node
-	struct header *next_node;
+	struct http_header *next_node;
 	next_node = request->header;
-	struct header **new_node_location = &request->header;
+	struct http_header **new_node_location = &request->header;
 	for (;;){
 		if (next_node == NULL){
 			break;
 		}
-		struct header *node;
+		struct http_header *node;
 		node = next_node;
 		next_node = node->next;
-		new_node_location = (struct header **)&node->next;
+		new_node_location = (struct http_header **)&node->next;
 	}
 	//append new struct
-	struct header *new_node = malloc(sizeof(struct header));
+	struct http_header *new_node = malloc(sizeof(struct http_header));
 	if (new_node == NULL){
 		perror("malloc");
 		return -1;
 	}
-	memset(new_node, 0, sizeof(struct header));
+	memset(new_node, 0, sizeof(struct http_header));
 	new_node->next = NULL;
 	new_node->field_name = malloc(strlen(field_name)+1);
 	new_node->field_value = malloc(strlen(field_value)+1);
