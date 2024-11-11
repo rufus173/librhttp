@@ -89,6 +89,19 @@ int http_send_request(struct http_connection *connection,struct http_request *re
 	full_request = realloc(full_request,full_request_size);
 	snprintf(full_request,request_line_size,"%s %s HTTP/1.1\r\n",request->method,request->url);
 	
+	//add the headers
+	struct http_header *node;
+	node = request->header;
+	for (int i = 0;;i++){
+		if (node == NULL){
+			break;
+		}
+		//next node
+		struct http_header *old_node;
+		old_node = node;
+		node = old_node->next
+	}
+
 	//mark the start of the body
 	full_request_size += 2;
 	full_request = realloc(full_request,full_request_size);
