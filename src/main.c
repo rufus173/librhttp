@@ -13,6 +13,7 @@ int main(int argc, char **argv){
 	http_send_request(connection,request);
 
 	http_free_request(request);
+	http_receive_response(connection);
 
 	http_disconnect(connection);
 	return 0;

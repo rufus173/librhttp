@@ -33,6 +33,8 @@ struct http_response {
 	char *response_line;
 	
 };
+//================== prototypes ===============
+int http_request_append_header(struct http_request *request, char *field_name, char *field_value);
 //================== public funcitons =============
 struct http_connection *http_connect(char *host){
 	//setup returned struct
@@ -79,6 +81,9 @@ int http_disconnect(struct http_connection *connection){
 	return 0;
 }
 int http_send_request(struct http_connection *connection,struct http_request *request){
+	//add content length header
+	http_request_append_header(request,"content-length","0");
+
 	//setup a buffer for the full request
 	char *full_request = NULL;
 	long long int full_request_size = 0;
@@ -92,17 +97,25 @@ int http_send_request(struct http_connection *connection,struct http_request *re
 	//add the headers
 	struct http_header *node;
 	node = request->header;
-	for (int i = 0;;i++){
+	for (int node_count = 0;;node_count++){
 		if (node == NULL){
 			break;
 		}
+		int header_length = snprintf(NULL,0,"%s: %s\r\n",node->field_name,node->field_value)+1;
+		full_request_size += header_length;
+		full_request = realloc(full_request,full_request_size);
+		char *header_buffer = malloc(header_length);
+		snprintf(header_buffer,header_length,"%s: %s\r\n",node->field_name,node->field_value);
+		strcat(full_request,header_buffer);
 		//next node
+		free(header_buffer);
 		struct http_header *old_node;
 		old_node = node;
-		node = old_node->next
+		node = old_node->next;
 	}
 
 	//mark the start of the body
+	// body seperated by \r\n\r\n
 	full_request_size += 2;
 	full_request = realloc(full_request,full_request_size);
 	strcat(full_request,"\r\n");
