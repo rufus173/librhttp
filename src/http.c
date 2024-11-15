@@ -40,6 +40,7 @@ struct http_connection *http_connect(char *host){
 	//setup returned struct
 	struct http_connection *connection;
 	connection = malloc(sizeof(struct http_connection));
+	memset(connection,0,sizeof(struct http_connection));
 	if (connection == NULL){
 		perror("malloc");
 		return NULL;
@@ -75,7 +76,10 @@ struct http_connection *http_connect(char *host){
 	return connection;
 }
 int http_disconnect(struct http_connection *connection){
-	close(connection->socket);
+	int status = close(connection->socket);
+	if (status < 0){
+		perror("close");
+	}
 	freeaddrinfo(connection->address_info);
 	free(connection);
 	return 0;
@@ -122,7 +126,20 @@ int http_send_request(struct http_connection *connection,struct http_request *re
 
 	printf("%s",full_request);
 	//send the full request packet
-	int bytes_sent = send(connection->socket,full_request,full_request_size,0);
+	char *send_buffer = full_request;
+	long long int bytes_to_send = full_request_size;
+	for (;;){
+		int bytes_sent = send(connection->socket,send_buffer,bytes_to_send,0);
+		if (bytes_sent < 0){
+			perror("send");
+			return -1;
+		}
+		bytes_to_send =- bytes_sent;
+		send_buffer += bytes_sent;
+		if (bytes_to_send <= 0){
+			break;
+		}
+	}
 	free(full_request);
 
 	return 0;
@@ -157,7 +174,7 @@ int http_free_request(struct http_request *request){
 		}
 		struct http_header *prev_node = node;
 		node = prev_node->next;
-		printf("freeing header \"%s: %s\"\n",prev_node->field_name,prev_node->field_value);
+		//printf("freeing header \"%s: %s\"\n",prev_node->field_name,prev_node->field_value);
 		free(prev_node->field_name);
 		free(prev_node->field_value);
 		free(prev_node);
@@ -168,8 +185,13 @@ int http_free_request(struct http_request *request){
 struct http_response *http_receive_response(struct http_connection *connection){
 	char buffer[4096];
 	int buffer_size = sizeof(buffer);
-	recv(connection->socket,buffer,buffer_size,0);
-	//printf("%s",buffer);
+	int bytes_received = recv(connection->socket,buffer,buffer_size,0);
+	if (bytes_received < 0){
+		perror("recv");
+		return NULL;
+	}
+	printf("got %d bytes\n",bytes_received);
+	printf("%s",buffer);
 	return NULL;
 }
 int http_request_append_header(struct http_request *request, char *field_name, char *field_value){

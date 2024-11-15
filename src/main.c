@@ -8,13 +8,10 @@ int main(int argc, char **argv){
 		return 1;
 	}
 	HTTP_request *request;
-	request = http_generate_request("GET","www.google.com");
-
+	request = http_generate_request("GET","/");
 	http_send_request(connection,request);
-
 	http_free_request(request);
 	http_receive_response(connection);
-
 	http_disconnect(connection);
 	return 0;
 }
