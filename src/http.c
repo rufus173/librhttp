@@ -124,7 +124,7 @@ int http_send_request(struct http_connection *connection,struct http_request *re
 	full_request = realloc(full_request,full_request_size);
 	strcat(full_request,"\r\n");
 
-	printf("%s",full_request);
+	//printf("%s",full_request);
 	//send the full request packet
 	char *send_buffer = full_request;
 	long long int bytes_to_send = full_request_size;
@@ -183,15 +183,51 @@ int http_free_request(struct http_request *request){
 	return 0;
 }
 struct http_response *http_receive_response(struct http_connection *connection){
-	char buffer[4096];
-	int buffer_size = sizeof(buffer);
-	int bytes_received = recv(connection->socket,buffer,buffer_size,0);
-	if (bytes_received < 0){
-		perror("recv");
+	//====================== get response line ========================
+	int status_code = -1;
+	char *status_message = NULL;
+	char *response_line = malloc(1);
+	if (response_line == NULL){
+		perror("malloc");
 		return NULL;
 	}
-	printf("got %d bytes\n",bytes_received);
-	printf("%s",buffer);
+	char *response_line_head = response_line;
+	size_t response_line_size = 1;
+	for (;;){
+		int result = recv(connection->socket,response_line_head,1,0);
+		if (result < 0){
+			perror("recv");
+			return NULL;
+		}
+		response_line_head += result;
+		response_line_size += result;
+		response_line = realloc(response_line,response_line_size);
+		if (strncmp(response_line_head-3,"\r\n",2) == 0){
+			//take the 
+			response_line_head[-3] = '\0';
+			response_line_size -= 3;
+			break;
+		}
+	}
+	// -------- break down line ------
+	// status
+	for (response_line_head = response_line;;response_line_head++){ //response line SIZE << strlen +1
+		if (strncmp(response_line_head," ",1) == 0){
+			response_line_head += 1;
+			break;
+		}
+	}
+	char *temp_status_message = NULL;
+	status_code = strtol(response_line_head,&temp_status_message,10);//strtol will give the end of the numbers pointer
+	// status message
+	size_t status_message_size = strlen(temp_status_message);
+	status_message = malloc(status_message_size);
+	snprintf(status_message,status_message_size,"%s",temp_status_message+1);
+	//clean up
+	printf("full response line: %s\n",response_line);
+	free(response_line);
+	printf("status code: %d\nstatus message: %s\n",status_code,status_message);
+	//========================== receive the headers ===================
 	return NULL;
 }
 int http_request_append_header(struct http_request *request, char *field_name, char *field_value){
