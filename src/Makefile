@@ -1,4 +1,4 @@
-CFLAGS=-Wall -g
+CFLAGS=-Wall -Wextra -g
 CC=gcc
 rufus-requests : tcp.o http.o main.o
 	$(CC) main.o tcp.o http.o -o rufus-requests
