@@ -30,8 +30,8 @@ struct http_request {
 	struct http_header *header;
 };
 struct http_response {
-	char *response_line;
-	
+	int status_code;
+	char *status_message;	
 };
 //================== prototypes ===============
 int http_request_append_header(struct http_request *request, char *field_name, char *field_value);
@@ -163,6 +163,10 @@ struct http_request *http_generate_request(char *method, char *url){
 	return request;
 }
 int http_free_request(struct http_request *request){
+	if (request == NULL){
+		fprintf(stderr,"http_free_request: request provided is NULL");
+		return -1;
+	}
 	free(request->method);
 	free(request->url);
 	//free the linked list of headers
@@ -182,7 +186,14 @@ int http_free_request(struct http_request *request){
 	free(request);
 	return 0;
 }
+int http_free_response(struct http_response *response){
+	free(response->status_message);
+	free(response);
+	return 0;
+}
 struct http_response *http_receive_response(struct http_connection *connection){
+	//============= prep struct to return back ================
+	struct http_response *response = malloc(sizeof(struct http_response));
 	//====================== get response line ========================
 	int status_code = -1;
 	char *status_message = NULL;
@@ -224,11 +235,11 @@ struct http_response *http_receive_response(struct http_connection *connection){
 	status_message = malloc(status_message_size);
 	snprintf(status_message,status_message_size,"%s",temp_status_message+1);
 	//clean up
-	printf("full response line: %s\n",response_line);
 	free(response_line);
-	printf("status code: %d\nstatus message: %s\n",status_code,status_message);
+	response->status_code = status_code;
+	response->status_message = status_message;
 	//========================== receive the headers ===================
-	return NULL;
+	return response;
 }
 int http_request_append_header(struct http_request *request, char *field_name, char *field_value){
 	//find the tail node

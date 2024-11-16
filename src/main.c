@@ -11,7 +11,8 @@ int main(int argc, char **argv){
 	request = http_generate_request("GET","/");
 	http_send_request(connection,request);
 	http_free_request(request);
-	http_receive_response(connection);
+	HTTP_response *response = http_receive_response(connection);
+	http_free_response(response);
 	http_disconnect(connection);
 	return 0;
 }
