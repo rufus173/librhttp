@@ -32,6 +32,8 @@ struct http_request {
 struct http_response {
 	int status_code;
 	char *status_message;	
+	struct http_header *header;
+	char *NULL;
 };
 //================== prototypes ===============
 int http_request_append_header(struct http_request *request, char *field_name, char *field_value);
@@ -186,7 +188,18 @@ int http_free_request(struct http_request *request){
 	free(request);
 	return 0;
 }
+//recursive func for freeing linked list
+static int recursive_free_header_node(struct http_header *header){
+	if (header == NULL){
+		return 0; //base condition
+	} else {
+		recursive_free_header_node((struct http_header *)header->next); //recursive step
+		free(header);
+		return 0;
+	}
+}
 int http_free_response(struct http_response *response){
+	recursive_free_header_node(response->header);
 	free(response->status_message);
 	free(response);
 	return 0;
@@ -239,6 +252,55 @@ struct http_response *http_receive_response(struct http_connection *connection){
 	response->status_code = status_code;
 	response->status_message = status_message;
 	//========================== receive the headers ===================
+	struct http_header **next_header = &response->header;
+	char buffer;
+	char *header_line = NULL;
+	char *header_line_head;
+	size_t header_line_size = 0;
+	//for each header in the response
+	for (;;){
+		//allocate the header
+		*next_header = malloc(sizeof(struct http_header));
+
+		//for each char in the header
+		header_line = malloc(1);
+		header_line_head
+		header_line[0] = '\0';
+		header_line_size = 1;
+		for (;;){
+			int result = recv(connection->socket,buffer,1,0);
+			if (result < 0){
+				perror("recv");
+				return NULL;
+			}
+			header_line_size += result;
+			header_line = realloc(header_line_size);
+			if (strncmp(header_line_head-2,"\r\n",2) == 0)
+				//start on the next header
+				break;
+			}
+		}
+		//process the header
+		if (strlen(header_line) == 0){
+			free(header_line);
+			break;//end of headers
+		}
+		free(header_line);
+		(*next_header)->next = NULL;
+		next_header = &(*next_header)->next;
+	}
+	//================================== receive the body ======================
+	//use the content-length header to find
+	int max_body_size = 1;
+	int body_size = 0;
+	char *body = malloc(max_body_size);
+	char *recv_buffer;
+	recv_buffer = body;
+	for (;body_size < max_body_size;){
+		int result = recv(connection->socket,recv_buffer,1,0);
+		recv_buffer += result;
+	}
+	free(body)
 	return response;
 }
 int http_request_append_header(struct http_request *request, char *field_name, char *field_value){
