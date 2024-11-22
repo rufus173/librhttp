@@ -33,7 +33,7 @@ struct http_response {
 	int status_code;
 	char *status_message;	
 	struct http_header *header;
-	char *NULL;
+	char *body;
 };
 //================== prototypes ===============
 int http_request_append_header(struct http_request *request, char *field_name, char *field_value);
@@ -253,9 +253,7 @@ struct http_response *http_receive_response(struct http_connection *connection){
 	response->status_message = status_message;
 	//========================== receive the headers ===================
 	struct http_header **next_header = &response->header;
-	char buffer;
 	char *header_line = NULL;
-	char *header_line_head;
 	size_t header_line_size = 0;
 	//for each header in the response
 	for (;;){
@@ -264,18 +262,21 @@ struct http_response *http_receive_response(struct http_connection *connection){
 
 		//for each char in the header
 		header_line = malloc(1);
-		header_line_head
 		header_line[0] = '\0';
 		header_line_size = 1;
 		for (;;){
-			int result = recv(connection->socket,buffer,1,0);
+			int result = recv(connection->socket,header_line+header_line_size-1,1,0);
 			if (result < 0){
 				perror("recv");
 				return NULL;
 			}
 			header_line_size += result;
-			header_line = realloc(header_line_size);
-			if (strncmp(header_line_head-2,"\r\n",2) == 0)
+			header_line = realloc(header_line,header_line_size);
+			header_line[header_line_size-1] = '\0';
+			if (header_line_size >= 3 && strncmp(header_line+header_line_size-3,"\r\n",2) == 0){
+				//cut of /r/n
+				header_line[header_line_size-3] = '\0';
+				printf("header_line: %s\n",header_line);
 				//start on the next header
 				break;
 			}
@@ -287,9 +288,10 @@ struct http_response *http_receive_response(struct http_connection *connection){
 		}
 		free(header_line);
 		(*next_header)->next = NULL;
-		next_header = &(*next_header)->next;
+		next_header = (struct http_header **)(&(*next_header)->next);
 	}
 	//================================== receive the body ======================
+	/*
 	//use the content-length header to find
 	int max_body_size = 1;
 	int body_size = 0;
@@ -301,6 +303,7 @@ struct http_response *http_receive_response(struct http_connection *connection){
 		recv_buffer += result;
 	}
 	free(body)
+	*/
 	return response;
 }
 int http_request_append_header(struct http_request *request, char *field_name, char *field_value){
