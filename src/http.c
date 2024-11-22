@@ -1,5 +1,6 @@
 //================ headers =============
 //#include "tcp.h"
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -188,7 +189,21 @@ int http_free_request(struct http_request *request){
 	free(request);
 	return 0;
 }
+static struct http_header *get_header(char *field_name,struct http_header *header){
+	if (header == NULL) return NULL;
+	if (strcmp(header->field_name,field_name) == 0) return header;
+	return get_header(field_name,header->next);
+}
 //recursive func for freeing linked list
+static void print_headers(struct http_header *header){
+	if (header == NULL){
+		return;
+	}else {
+		print_headers(header->next);
+		printf("%s: %s\n",header->field_name,header->field_value);
+		return;
+	}
+}
 static int recursive_free_header_node(struct http_header *header){
 	if (header == NULL){
 		return 0; //base condition
@@ -197,6 +212,10 @@ static int recursive_free_header_node(struct http_header *header){
 		free(header);
 		return 0;
 	}
+}
+char *http_get_header_value(struct http_response *response, char *field_name){
+	struct http_header *result = get_header(field_name,response->header);
+	return result->field_value;
 }
 int http_free_response(struct http_response *response){
 	recursive_free_header_node(response->header);
@@ -252,13 +271,11 @@ struct http_response *http_receive_response(struct http_connection *connection){
 	response->status_code = status_code;
 	response->status_message = status_message;
 	//========================== receive the headers ===================
-	struct http_header **next_header = &response->header;
+	struct http_header **next_header = &(response->header);
 	char *header_line = NULL;
 	size_t header_line_size = 0;
 	//for each header in the response
 	for (;;){
-		//allocate the header
-		*next_header = malloc(sizeof(struct http_header));
 
 		//for each char in the header
 		header_line = malloc(1);
@@ -276,7 +293,6 @@ struct http_response *http_receive_response(struct http_connection *connection){
 			if (header_line_size >= 3 && strncmp(header_line+header_line_size-3,"\r\n",2) == 0){
 				//cut of /r/n
 				header_line[header_line_size-3] = '\0';
-				printf("header_line: %s\n",header_line);
 				//start on the next header
 				break;
 			}
@@ -286,24 +302,36 @@ struct http_response *http_receive_response(struct http_connection *connection){
 			free(header_line);
 			break;//end of headers
 		}
+		//allocate the header
+		*next_header = malloc(sizeof(struct http_header));
+		//find the ':' and split the string
+		char *field_name = header_line;
+		char *field_value = strchr(field_name,':');
+		field_value[0] = '\0';
+		field_value++;
+		(*next_header)->field_name = malloc(strlen(field_name+1));
+		(*next_header)->field_value = malloc(strlen(field_value)+1);
+		//http standard dictates field names are case INsensitive
+		for (int i = 0;field_name[i] != '\0';i++){
+			field_name[i] = tolower(field_name[i]);
+		}
+		// strip trailing whitespace
+		for (int i = 0;field_value[i] != '\0';i++){
+			if (isspace(field_value[i]) != 0){
+				field_value++;
+				i--;
+			}
+		}
+		strcpy((*next_header)->field_name,field_name);
+		strcpy((*next_header)->field_value,field_value);
+
 		free(header_line);
 		(*next_header)->next = NULL;
 		next_header = (struct http_header **)(&(*next_header)->next);
 	}
+	print_headers(response->header);
 	//================================== receive the body ======================
-	/*
-	//use the content-length header to find
-	int max_body_size = 1;
-	int body_size = 0;
-	char *body = malloc(max_body_size);
-	char *recv_buffer;
-	recv_buffer = body;
-	for (;body_size < max_body_size;){
-		int result = recv(connection->socket,recv_buffer,1,0);
-		recv_buffer += result;
-	}
-	free(body)
-	*/
+	printf("transfer-encoding = %s\n",http_get_header_value(response,"transfer-encoding"));
 	return response;
 }
 int http_request_append_header(struct http_request *request, char *field_name, char *field_value){
