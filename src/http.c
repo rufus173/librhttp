@@ -356,14 +356,19 @@ struct http_response *http_receive_response(struct http_connection *connection){
 				}
 			}
 			long long int chunk_size = strtol(chunk_size_buffer,NULL,16);
-			printf("getting chunk of size %lld\n",chunk_size);
+			printf("getting chunk of size %lld from string %s\n",chunk_size,chunk_size_buffer);
 			free(chunk_size_buffer);
 			//last chunk
 			if (chunk_size == 0) break;
-			char *chunk = malloc(chunk_size+1);
+			char *chunk = malloc(sizeof(char)*(chunk_size+1));
+			if (chunk == NULL){
+				perror("malloc");
+				return NULL;
+			}
 			//recvall the chunk
-			for (int chunk_index;chunk_index < chunk_size-1;){
-				int result = recv(connection->socket,chunk,chunk_size,0);
+			for (int chunk_index = 0;chunk_index < chunk_size-1;){
+				int result = recv(connection->socket,chunk+chunk_index,chunk_size-chunk_index,0);
+				printf("received %d bytes\n",result);
 				if (result < 0){
 					fprintf(stderr,"could not receive chunk\n");
 					perror("recv");
@@ -372,7 +377,7 @@ struct http_response *http_receive_response(struct http_connection *connection){
 				chunk_index += result;
 			}
 			//end of chunk
-			printf("%*.s\n",(int)chunk_size,chunk);
+			printf("%s\n",chunk);
 			free(chunk);
 		}
 	}
