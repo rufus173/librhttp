@@ -332,6 +332,50 @@ struct http_response *http_receive_response(struct http_connection *connection){
 	print_headers(response->header);
 	//================================== receive the body ======================
 	printf("transfer-encoding = %s\n",http_get_header_value(response,"transfer-encoding"));
+	if (http_get_header_value(response,"transfer-encoding") == NULL){
+		//no body
+		return response;
+	}else if (strcmp(http_get_header_value(response,"transfer-encoding"),"chunked") == 0){
+		//=================== decode chunked body =====================
+		for (;;){ 
+			char *chunk_size_buffer = malloc(1);
+			size_t chunk_size_buffer_size = 1;
+			for (;;){
+				//receive the chunk size
+				int result = recv(connection->socket,chunk_size_buffer+chunk_size_buffer_size-1,1,0);
+				if (result < 0){
+					perror("recv");
+					fprintf(stderr,"could not get chunk size\n");
+					return NULL;
+				}
+				chunk_size_buffer_size += result;
+				chunk_size_buffer = realloc(chunk_size_buffer,chunk_size_buffer_size);
+				chunk_size_buffer[chunk_size_buffer_size-1] = '\0';
+				if (chunk_size_buffer_size > 2 && strcmp(chunk_size_buffer+chunk_size_buffer_size-3,"\r\n") == 0){
+					break;
+				}
+			}
+			long long int chunk_size = strtol(chunk_size_buffer,NULL,16);
+			printf("getting chunk of size %lld\n",chunk_size);
+			free(chunk_size_buffer);
+			//last chunk
+			if (chunk_size == 0) break;
+			char *chunk = malloc(chunk_size+1);
+			//recvall the chunk
+			for (int chunk_index;chunk_index < chunk_size-1;){
+				int result = recv(connection->socket,chunk,chunk_size,0);
+				if (result < 0){
+					fprintf(stderr,"could not receive chunk\n");
+					perror("recv");
+					return NULL;
+				}
+				chunk_index += result;
+			}
+			//end of chunk
+			printf("%*.s\n",(int)chunk_size,chunk);
+			free(chunk);
+		}
+	}
 	return response;
 }
 int http_request_append_header(struct http_request *request, char *field_name, char *field_value){
