@@ -1,9 +1,9 @@
 CFLAGS=-Wall -Wextra -g
 CC=gcc
 rufus-requests : tcp.o http.o main.o
-	$(CC) main.o tcp.o http.o -o rufus-requests
+	$(CC) $^ -o $@
 librufushttp.so : tcp.o http.o
-	$(CC) tcp.o http.o -shared -o librhttp.so
+	$(CC) $^ -shared -o $@
 tcp.o : tcp.c
 	$(CC) $(CFLAGS) -fpic -c tcp.c
 http.o : http.c tcp.h
