@@ -329,14 +329,17 @@ struct http_response *http_receive_response(struct http_connection *connection){
 		(*next_header)->next = NULL;
 		next_header = (struct http_header **)(&(*next_header)->next);
 	}
-	print_headers(response->header);
+	//print_headers(response->header);
 	//================================== receive the body ======================
-	printf("transfer-encoding = %s\n",http_get_header_value(response,"transfer-encoding"));
+	//printf("transfer-encoding = %s\n",http_get_header_value(response,"transfer-encoding"));
 	if (http_get_header_value(response,"transfer-encoding") == NULL){
 		//no body
 		return response;
 	}else if (strcmp(http_get_header_value(response,"transfer-encoding"),"chunked") == 0){
 		//=================== decode chunked body =====================
+		//setup body buffer
+		char *response_body = malloc(1);
+		size_t response_body_size = 1;
 		for (;;){ 
 			char *chunk_size_buffer = malloc(1);
 			size_t chunk_size_buffer_size = 1;
@@ -356,7 +359,7 @@ struct http_response *http_receive_response(struct http_connection *connection){
 				}
 			}
 			long long int chunk_size = strtol(chunk_size_buffer,NULL,16);
-			printf("getting chunk of size %lld from string %s\n",chunk_size,chunk_size_buffer);
+			//printf("getting chunk of size %lld from string %s\n",chunk_size,chunk_size_buffer);
 			free(chunk_size_buffer);
 			//last chunk
 			if (chunk_size == 0) break;
@@ -368,7 +371,7 @@ struct http_response *http_receive_response(struct http_connection *connection){
 			//recvall the chunk
 			for (int chunk_index = 0;chunk_index < chunk_size-1;){
 				int result = recv(connection->socket,chunk+chunk_index,chunk_size-chunk_index,0);
-				printf("received %d bytes\n",result);
+			//	printf("received %d bytes\n",result);
 				if (result < 0){
 					fprintf(stderr,"could not receive chunk\n");
 					perror("recv");
@@ -380,9 +383,14 @@ struct http_response *http_receive_response(struct http_connection *connection){
 			char end_buffer[2];
 			int result = recv(connection->socket,end_buffer,sizeof(end_buffer),0);
 			//end of chunk
-			printf("%s",chunk);
+			response_body_size += chunk_size;
+			response_body = realloc(response_body,response_body_size);
+			memcpy(response_body+response_body_size-1-chunk_size,chunk,chunk_size);
+			response_body[response_body_size-1] = '\0';
+			
 			free(chunk);
 		}
+		response->body = response_body;
 	}
 	return response;
 }

@@ -12,6 +12,7 @@ int main(int argc, char **argv){
 	http_send_request(connection,request);
 	http_free_request(request);
 	HTTP_response *response = http_receive_response(connection);
+	printf("%s\n",response->body);
 	http_free_response(response);
 	http_disconnect(connection);
 	return 0;
