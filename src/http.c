@@ -376,8 +376,11 @@ struct http_response *http_receive_response(struct http_connection *connection){
 				}
 				chunk_index += result;
 			}
+			//strip trailing \r\n
+			char end_buffer[2];
+			int result = recv(connection->socket,end_buffer,sizeof(end_buffer),0);
 			//end of chunk
-			printf("%s\n",chunk);
+			printf("%s",chunk);
 			free(chunk);
 		}
 	}
