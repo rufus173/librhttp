@@ -209,6 +209,8 @@ static int recursive_free_header_node(struct http_header *header){
 		return 0; //base condition
 	} else {
 		recursive_free_header_node((struct http_header *)header->next); //recursive step
+		free(header->field_name);
+		free(header->field_value);
 		free(header);
 		return 0;
 	}
@@ -220,6 +222,7 @@ char *http_get_header_value(struct http_response *response, char *field_name){
 int http_free_response(struct http_response *response){
 	recursive_free_header_node(response->header);
 	free(response->status_message);
+	free(response->body);
 	free(response);
 	return 0;
 }
@@ -332,6 +335,7 @@ struct http_response *http_receive_response(struct http_connection *connection){
 	//print_headers(response->header);
 	//================================== receive the body ======================
 	//printf("transfer-encoding = %s\n",http_get_header_value(response,"transfer-encoding"));
+	response->body = NULL;
 	if (http_get_header_value(response,"transfer-encoding") == NULL){
 		//no body
 		return response;
