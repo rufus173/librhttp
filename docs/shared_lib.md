@@ -11,6 +11,12 @@ Return value of NULL on failure.
 Use the function `HTTP_request *http_generate_request(char *method, char *url)` to initialise and allocate a `HTTP_request *`. This can then be passed to `http_send_request()` to send. You MUST use this function for the creation of this struct as this function allocates and initialises the struct in specific ways. Make sure to free the request after you are done with it.
 Returns NULL on failure
 
+## Adding http headers
+
+Use the function `iny http_request_append_header(HTTP_request *, char *field_name, char *field_value)` to append a header to the linked list of headers stored in the `struct HTTP_request *`.
+Returns 0 on success and < 0 on failure.
+The linked lists will be automaticaly freed when the http request is freed.
+
 ## Receiving a response
 
 Use the function `HTTP_response *http_receive_response(HTTP_connection *)` to receive a response from the server after making a request. It will allocate the struct returned, which can be freed after use with `http_free_response()`.
