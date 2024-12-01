@@ -1,5 +1,5 @@
 //================ headers =============
-//#include "tcp.h"
+#include "tcp.h"
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -134,7 +134,7 @@ int http_send_request(struct http_connection *connection,struct http_request *re
 	if (request->body_size > 0){
 		memcpy(full_request+full_request_size,request->body,request->body_size);// concatenate the body to the end of the request
 	}
-	printf("body_size: %lu\n",request->body_size);
+	//printf("body_size: %lu\n",request->body_size);
 	
 
 	//printf("%s",full_request);
@@ -351,15 +351,12 @@ struct http_response *http_receive_response(struct http_connection *connection){
 		(*next_header)->next = NULL;
 		next_header = (struct http_header **)(&(*next_header)->next);
 	}
-	print_headers(response->header);
+	//print_headers(response->header);
 	//================================== receive the body ======================
 	//printf("transfer-encoding = %s\n",http_get_header_value(response,"transfer-encoding"));
 	response->body = NULL;
 	response->body_size = 0;
-	if (http_get_header_value(response,"transfer-encoding") == NULL){
-		//no body
-		return response;
-	}else if (strcmp(http_get_header_value(response,"transfer-encoding"),"chunked") == 0){
+	if (http_get_header_value(response,"transfer-encoding") != NULL && strcmp(http_get_header_value(response,"transfer-encoding"),"chunked") == 0){
 		//=================== decode chunked body =====================
 		response->body_size = 0;
 		//setup body buffer
@@ -421,6 +418,19 @@ struct http_response *http_receive_response(struct http_connection *connection){
 			free(chunk);
 		}
 		response->body = response_body;
+	}else if (http_get_header_value(response,"content-length") != NULL){
+		long int content_length = strtol(http_get_header_value(response,"content-length"),NULL,10);
+		response->body_size = content_length;
+		response->body = malloc(content_length);
+		int status = tcp_recvall(connection->socket,response->body,content_length);//tcp.c
+		if (status < 0){
+			response->body = NULL;
+			response->body_size = 0;
+		}
+		//printf("body[%ld]: %s\n",content_length,response->body);
+	}else {
+		response->body = NULL;
+		response->body_size = 0;
 	}
 	return response;
 }
