@@ -17,6 +17,10 @@ Use the function `iny http_request_append_header(HTTP_request *, char *field_nam
 Returns 0 on success and < 0 on failure.
 The linked lists will be automaticaly freed when the http request is freed.
 
+## Adding a body to a http request
+
+Use the funciton `int http_add_body(struct HTTP_request *,char *body)` with your request and body. This function will copy the data provided so you can free the data sent into it after executes. The new body data in the request will then be managed by this libraries functions.
+
 ## Receiving a response
 
 Use the function `HTTP_response *http_receive_response(HTTP_connection *)` to receive a response from the server after making a request. It will allocate the struct returned, which can be freed after use with `http_free_response()`.

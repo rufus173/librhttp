@@ -28,6 +28,7 @@ struct http_request {
         char *method;
         char *url;
 	char *body;
+	size_t body_size;
 	struct http_header *header;
 };
 struct http_response {
@@ -89,7 +90,9 @@ int http_disconnect(struct http_connection *connection){
 }
 int http_send_request(struct http_connection *connection,struct http_request *request){
 	//add content length header
-	http_request_append_header(request,"content-length","0");
+	char content_length_buffer[1024]; //its a number
+	snprintf(content_length_buffer,1024,"%lu",request->body_size);
+	http_request_append_header(request,"content-length",content_length_buffer);
 
 	//setup a buffer for the full request
 	char *full_request = NULL;
@@ -123,9 +126,15 @@ int http_send_request(struct http_connection *connection,struct http_request *re
 
 	//mark the start of the body
 	// body seperated by \r\n\r\n
-	full_request_size += 2;
+	full_request_size += 2;  // \r\n
+	full_request_size += request->body_size;
 	full_request = realloc(full_request,full_request_size);
-	strcat(full_request,"\r\n");
+	//strcat(full_request,"\r\n");
+	if (request->body_size > 0){
+		memcpy(full_request+full_request_size,request->body,request->body_size);// concatenate the body to the end of the request
+	}
+	printf("body_size: %lu\n",request->body_size);
+	
 
 	//printf("%s",full_request);
 	//send the full request packet
@@ -162,6 +171,7 @@ struct http_request *http_generate_request(char *method, char *url){
 	snprintf(request->method,strlen(method)+1,"%s",method);
 	snprintf(request->url,strlen(url)+1,"%s",url);
 	request->body = NULL;
+	request->body_size = 0;
 	request->header = NULL;
 	return request;
 }
@@ -186,6 +196,7 @@ int http_free_request(struct http_request *request){
 		free(prev_node->field_value);
 		free(prev_node);
 	}
+	free(request->body);
 	free(request);
 	return 0;
 }
@@ -425,5 +436,11 @@ int http_request_append_header(struct http_request *request, char *field_name, c
 	snprintf(new_node->field_name,strlen(field_name)+1,"%s",field_name);
 	snprintf(new_node->field_value,strlen(field_value)+1,"%s",field_value);
 	*new_node_location = new_node;
+	return 0;
+}
+int http_request_add_body(struct http_request *request, char *body, size_t body_size){
+	request->body = malloc(body_size);
+	request->body_size = body_size;
+	memcpy(request->body,body,body_size);
 	return 0;
 }
