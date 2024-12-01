@@ -90,8 +90,8 @@ int http_disconnect(struct http_connection *connection){
 }
 int http_send_request(struct http_connection *connection,struct http_request *request){
 	//add content length header
-	char content_length_buffer[1024]; //its a number
-	snprintf(content_length_buffer,1024,"%lu",request->body_size);
+	char content_length_buffer[100]; //its a number
+	snprintf(content_length_buffer,sizeof(content_length_buffer),"%lu",request->body_size);
 	http_request_append_header(request,"content-length",content_length_buffer);
 
 	//setup a buffer for the full request
@@ -129,7 +129,7 @@ int http_send_request(struct http_connection *connection,struct http_request *re
 	full_request_size += 2;  // \r\n
 	full_request_size += request->body_size;
 	full_request = realloc(full_request,full_request_size);
-	//strcat(full_request,"\r\n");
+	strcat(full_request,"\r\n");
 	if (request->body_size > 0){
 		memcpy(full_request+full_request_size,request->body,request->body_size);// concatenate the body to the end of the request
 	}
