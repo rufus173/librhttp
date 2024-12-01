@@ -36,6 +36,7 @@ struct http_response {
 	char *status_message;	
 	struct http_header *header;
 	char *body;
+	size_t body_size;
 };
 //================== prototypes ===============
 int http_request_append_header(struct http_request *request, char *field_name, char *field_value);
@@ -228,12 +229,17 @@ static int recursive_free_header_node(struct http_header *header){
 }
 char *http_get_header_value(struct http_response *response, char *field_name){
 	struct http_header *result = get_header(field_name,response->header);
+	if (result == NULL){//dont dereference null pointer
+		return NULL;
+	}
 	return result->field_value;
 }
 int http_free_response(struct http_response *response){
 	recursive_free_header_node(response->header);
 	free(response->status_message);
-	free(response->body);
+	if (response->body != NULL){
+		free(response->body);
+	}
 	free(response);
 	return 0;
 }
@@ -242,26 +248,24 @@ struct http_response *http_receive_response(struct http_connection *connection){
 	struct http_response *response = malloc(sizeof(struct http_response));
 	//====================== get response line ========================
 	int status_code = -1;
-	char *status_message = NULL;
 	char *response_line = malloc(1);
 	if (response_line == NULL){
 		perror("malloc");
 		return NULL;
 	}
-	char *response_line_head = response_line;
+	char *response_line_head;
 	size_t response_line_size = 1;
 	for (;;){
-		int result = recv(connection->socket,response_line_head,1,0);
+		int result = recv(connection->socket,response_line+response_line_size-1,1,0);
 		if (result < 0){
 			perror("recv");
 			return NULL;
 		}
-		response_line_head += result;
 		response_line_size += result;
 		response_line = realloc(response_line,response_line_size);
-		if (strncmp(response_line_head-3,"\r\n",2) == 0){
+		if (response_line_size > 3 && strncmp(response_line+response_line_size-3,"\r\n",2) == 0){
 			//take the 
-			response_line_head[-3] = '\0';
+			response_line[response_line_size-3] = '\0';
 			response_line_size -= 3;
 			break;
 		}
@@ -278,6 +282,7 @@ struct http_response *http_receive_response(struct http_connection *connection){
 	status_code = strtol(response_line_head,&temp_status_message,10);//strtol will give the end of the numbers pointer
 	// status message
 	size_t status_message_size = strlen(temp_status_message);
+	char *status_message = NULL;
 	status_message = malloc(status_message_size);
 	snprintf(status_message,status_message_size,"%s",temp_status_message+1);
 	//clean up
@@ -316,6 +321,7 @@ struct http_response *http_receive_response(struct http_connection *connection){
 			free(header_line);
 			break;//end of headers
 		}
+		//printf("%s\n",header_line);
 		//allocate the header
 		*next_header = malloc(sizeof(struct http_header));
 		//find the ':' and split the string
@@ -334,6 +340,8 @@ struct http_response *http_receive_response(struct http_connection *connection){
 			if (isspace(field_value[i]) != 0){
 				field_value++;
 				i--;
+			}else{
+				break;
 			}
 		}
 		strcpy((*next_header)->field_name,field_name);
@@ -343,15 +351,17 @@ struct http_response *http_receive_response(struct http_connection *connection){
 		(*next_header)->next = NULL;
 		next_header = (struct http_header **)(&(*next_header)->next);
 	}
-	//print_headers(response->header);
+	print_headers(response->header);
 	//================================== receive the body ======================
 	//printf("transfer-encoding = %s\n",http_get_header_value(response,"transfer-encoding"));
 	response->body = NULL;
+	response->body_size = 0;
 	if (http_get_header_value(response,"transfer-encoding") == NULL){
 		//no body
 		return response;
 	}else if (strcmp(http_get_header_value(response,"transfer-encoding"),"chunked") == 0){
 		//=================== decode chunked body =====================
+		response->body_size = 0;
 		//setup body buffer
 		char *response_body = malloc(1);
 		size_t response_body_size = 1;
@@ -375,6 +385,7 @@ struct http_response *http_receive_response(struct http_connection *connection){
 			}
 			long long int chunk_size = strtol(chunk_size_buffer,NULL,16);
 			//printf("getting chunk of size %lld from string %s\n",chunk_size,chunk_size_buffer);
+			response->body_size += chunk_size;
 			free(chunk_size_buffer);
 			//last chunk
 			if (chunk_size == 0) break;
@@ -397,6 +408,10 @@ struct http_response *http_receive_response(struct http_connection *connection){
 			//strip trailing \r\n
 			char end_buffer[2];
 			int result = recv(connection->socket,end_buffer,sizeof(end_buffer),0);
+			if (result < 0){
+				perror("recv");
+				return NULL;
+			}
 			//end of chunk
 			response_body_size += chunk_size;
 			response_body = realloc(response_body,response_body_size);

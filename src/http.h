@@ -24,6 +24,7 @@ struct http_response {
 	char *status_message;
 	struct http_header *header;
 	char *body;
+	size_t body_size;
 };
 typedef struct http_response HTTP_response;
 typedef struct http_request HTTP_request;
