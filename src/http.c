@@ -392,15 +392,9 @@ struct http_response *http_receive_response(struct http_connection *connection){
 				return NULL;
 			}
 			//recvall the chunk
-			for (int chunk_index = 0;chunk_index < chunk_size-1;){
-				int result = recv(connection->socket,chunk+chunk_index,chunk_size-chunk_index,0);
-			//	printf("received %d bytes\n",result);
-				if (result < 0){
-					fprintf(stderr,"could not receive chunk\n");
-					perror("recv");
-					return NULL;
-				}
-				chunk_index += result;
+			if (tcp_recvall(connection->socket,chunk,chunk_size) < 0){
+				fprintf(stderr,"could not receive chunk\n");
+				return NULL;
 			}
 			//strip trailing \r\n
 			char end_buffer[2];
