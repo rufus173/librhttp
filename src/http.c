@@ -45,11 +45,11 @@ struct http_connection *http_connect(char *host){
 	//setup returned struct
 	struct http_connection *connection;
 	connection = malloc(sizeof(struct http_connection));
-	memset(connection,0,sizeof(struct http_connection));
 	if (connection == NULL){
 		perror("malloc");
 		return NULL;
 	}
+	memset(connection,0,sizeof(struct http_connection));
 
 	//resolve a hostname or url
 	struct addrinfo hints, *address_info;
@@ -248,37 +248,23 @@ struct http_response *http_receive_response(struct http_connection *connection){
 	struct http_response *response = malloc(sizeof(struct http_response));
 	//====================== get response line ========================
 	int status_code = -1;
-	char *response_line = malloc(1);
-	if (response_line == NULL){
-		perror("malloc");
-		return NULL;
-	}
+	char *response_line;
 	char *response_line_head;
-	size_t response_line_size = 1;
-	for (;;){
-		int result = recv(connection->socket,response_line+response_line_size-1,1,0);
-		if (result < 0){
-			perror("recv");
-			return NULL;
-		}
-		response_line_size += result;
-		response_line = realloc(response_line,response_line_size);
-		if (response_line_size > 3 && strncmp(response_line+response_line_size-3,"\r\n",2) == 0){
-			//take the 
-			response_line[response_line_size-3] = '\0';
-			response_line_size -= 3;
-			break;
-		}
+	long int response_line_size = tcp_recv_to_crlf(connection->socket,&response_line);
+	if (response_line_size < 0){
+		fprintf(stderr,"could not get response line.\n");
+		return NULL;
 	}
 	// -------- break down line ------
 	// status
+	//split status at next ' '
 	for (response_line_head = response_line;;response_line_head++){ //response line SIZE << strlen +1
 		if (strncmp(response_line_head," ",1) == 0){
 			response_line_head += 1;
 			break;
 		}
 	}
-	char *temp_status_message = NULL;
+	char *temp_status_message;
 	status_code = strtol(response_line_head,&temp_status_message,10);//strtol will give the end of the numbers pointer
 	// status message
 	size_t status_message_size = strlen(temp_status_message);
@@ -292,29 +278,14 @@ struct http_response *http_receive_response(struct http_connection *connection){
 	//========================== receive the headers ===================
 	struct http_header **next_header = &(response->header);
 	char *header_line = NULL;
-	size_t header_line_size = 0;
 	//for each header in the response
 	for (;;){
 
 		//for each char in the header
-		header_line = malloc(1);
-		header_line[0] = '\0';
-		header_line_size = 1;
-		for (;;){
-			int result = recv(connection->socket,header_line+header_line_size-1,1,0);
-			if (result < 0){
-				perror("recv");
-				return NULL;
-			}
-			header_line_size += result;
-			header_line = realloc(header_line,header_line_size);
-			header_line[header_line_size-1] = '\0';
-			if (header_line_size >= 3 && strncmp(header_line+header_line_size-3,"\r\n",2) == 0){
-				//cut of /r/n
-				header_line[header_line_size-3] = '\0';
-				//start on the next header
-				break;
-			}
+		int result = tcp_recv_to_crlf(connection->socket,&header_line)+1;
+		if (result < 0){
+			fprintf(stderr,"could not receive header\n");
+			return NULL;
 		}
 		//process the header
 		if (strlen(header_line) == 0){
@@ -329,7 +300,7 @@ struct http_response *http_receive_response(struct http_connection *connection){
 		char *field_value = strchr(field_name,':');
 		field_value[0] = '\0';
 		field_value++;
-		(*next_header)->field_name = malloc(strlen(field_name+1));
+		(*next_header)->field_name = malloc(strlen(field_name)+1);
 		(*next_header)->field_value = malloc(strlen(field_value)+1);
 		//http standard dictates field names are case INsensitive
 		for (int i = 0;field_name[i] != '\0';i++){
@@ -363,22 +334,11 @@ struct http_response *http_receive_response(struct http_connection *connection){
 		char *response_body = malloc(1);
 		size_t response_body_size = 1;
 		for (;;){ 
-			char *chunk_size_buffer = malloc(1);
-			size_t chunk_size_buffer_size = 1;
-			for (;;){
-				//receive the chunk size
-				int result = recv(connection->socket,chunk_size_buffer+chunk_size_buffer_size-1,1,0);
-				if (result < 0){
-					perror("recv");
-					fprintf(stderr,"could not get chunk size\n");
-					return NULL;
-				}
-				chunk_size_buffer_size += result;
-				chunk_size_buffer = realloc(chunk_size_buffer,chunk_size_buffer_size);
-				chunk_size_buffer[chunk_size_buffer_size-1] = '\0';
-				if (chunk_size_buffer_size > 2 && strcmp(chunk_size_buffer+chunk_size_buffer_size-3,"\r\n") == 0){
-					break;
-				}
+			char *chunk_size_buffer;
+			int result = tcp_recv_to_crlf(connection->socket,&chunk_size_buffer);
+			if (result < 0){
+				fprintf(stderr,"could not receive chunk size\n");
+				return NULL;
 			}
 			long long int chunk_size = strtol(chunk_size_buffer,NULL,16);
 			//printf("getting chunk of size %lld from string %s\n",chunk_size,chunk_size_buffer);
@@ -398,7 +358,7 @@ struct http_response *http_receive_response(struct http_connection *connection){
 			}
 			//strip trailing \r\n
 			char end_buffer[2];
-			int result = recv(connection->socket,end_buffer,sizeof(end_buffer),0);
+			result = recv(connection->socket,end_buffer,sizeof(end_buffer),0);
 			if (result < 0){
 				perror("recv");
 				return NULL;
@@ -406,6 +366,11 @@ struct http_response *http_receive_response(struct http_connection *connection){
 			//end of chunk
 			response_body_size += chunk_size;
 			response_body = realloc(response_body,response_body_size);
+			if (response_body == NULL){
+				perror("realloc");
+				fprintf(stderr,"could not reallocate body\n");
+				return NULL;
+			}
 			memcpy(response_body+response_body_size-1-chunk_size,chunk,chunk_size);
 			response_body[response_body_size-1] = '\0';
 			
