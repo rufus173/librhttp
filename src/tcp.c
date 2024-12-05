@@ -4,6 +4,46 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#include "http.h"
+int tcp_connect_socket(struct http_connection *connection, char *address,char *port){
+	//resolve a hostname or url
+	struct addrinfo hints, *address_info;
+	memset(&hints,0,sizeof(struct addrinfo));
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_STREAM;
+	int result = getaddrinfo(address,port,&hints,&address_info);
+	if (result < 0){
+		fprintf(stderr,"getaddrinfo: %s\n",gai_strerror(result));
+		return -1;
+	}
+	connection->address_info = address_info;
+
+	//create a socket
+	int sock = socket(AF_INET,SOCK_STREAM,0);
+	if (sock < 0){
+		perror("socket");
+		return -1;
+	}
+	connection->socket = sock;
+
+	//connect
+	result = connect(sock,address_info->ai_addr,address_info->ai_addrlen);
+	if (result < 0){
+		perror("connect");
+		return -1;
+	}
+	return 0;
+}
+int tcp_close_socket(struct http_connection *connection){
+	int status = close(connection->socket);
+	if (status < 0){
+		perror("close");
+		return -1;
+	}
+	return 0;
+}
 int tcp_recvall(int socket,char *buffer,size_t max){
 	long int bytes_left = max;
 	//printf("attempting to get %ld bytes\n",max);

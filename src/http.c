@@ -50,40 +50,21 @@ struct http_connection *http_connect(char *host){
 		return NULL;
 	}
 	memset(connection,0,sizeof(struct http_connection));
-
-	//resolve a hostname or url
-	struct addrinfo hints, *address_info;
-	memset(&hints,0,sizeof(struct addrinfo));
-	hints.ai_family = AF_INET;
-	hints.ai_socktype = SOCK_STREAM;
-	int result = getaddrinfo(host,"80",&hints,&address_info);
-	if (result < 0){
-		fprintf(stderr,"getaddrinfo: %s\n",gai_strerror(result));
-		return NULL;
-	}
-	connection->address_info = address_info;
-
-	//create a socket
-	int sock = socket(AF_INET,SOCK_STREAM,0);
-	if (sock < 0){
-		perror("socket");
-		return NULL;
-	}
-	connection->socket = sock;
-
+	
 	//connect
-	result = connect(sock,address_info->ai_addr,address_info->ai_addrlen);
+	int result = tcp_connect_socket(connection,host,"80");
 	if (result < 0){
-		perror("connect");
+		fprintf(stderr,"failed to connect\n");
 		return NULL;
 	}
 
 	return connection;
 }
 int http_disconnect(struct http_connection *connection){
-	int status = close(connection->socket);
-	if (status < 0){
-		perror("close");
+	int result = tcp_close_socket(connection);
+	if (result < 0){
+		fprintf(stderr,"tcp_close_socket: could not close\n");
+		return -1;
 	}
 	freeaddrinfo(connection->address_info);
 	free(connection);
