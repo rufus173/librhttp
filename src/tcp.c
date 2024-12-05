@@ -7,6 +7,13 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include "http.h"
+static int tcp_recv(struct http_connection *connection, void *buf, size_t len, int flags){
+	if (connection->use_ssl == 0){
+		return recv(connection->socket,buf,len,flags);
+	}
+	fprintf(stderr,"connection struct error: did you initialise it?\n");
+	return -1;
+}
 int tcp_connect_socket(struct http_connection *connection, char *address,char *port){
 	//resolve a hostname or url
 	struct addrinfo hints, *address_info;
@@ -44,12 +51,12 @@ int tcp_close_socket(struct http_connection *connection){
 	}
 	return 0;
 }
-int tcp_recvall(int socket,char *buffer,size_t max){
+int tcp_recvall(struct http_connection *connection,char *buffer,size_t max){
 	long int bytes_left = max;
 	//printf("attempting to get %ld bytes\n",max);
 	long int bytes_received = 0;
 	for (;bytes_left > 0;){
-		int result = recv(socket,buffer+bytes_received,bytes_left,0);
+		int result = tcp_recv(connection,buffer+bytes_received,bytes_left,0);
 		if (result < 0){
 			perror("recv");
 			return -1;
@@ -60,7 +67,7 @@ int tcp_recvall(int socket,char *buffer,size_t max){
 	//printf("got %ld bytes\n",bytes_received);
 	return 0;
 }
-long int tcp_recv_to_crlf(int socket,char **buffer){
+long int tcp_recv_to_crlf(struct http_connection *connection,char **buffer){
 	long int bytes_received = 0;
 	char recv_buffer;
 	char *final_buffer = malloc(1);
@@ -69,7 +76,7 @@ long int tcp_recv_to_crlf(int socket,char **buffer){
 		return -1;
 	}
 	for (;;){
-		int result = recv(socket,&recv_buffer,1,0);
+		int result = tcp_recv(connection,&recv_buffer,1,0);
 		if (result < 0){
 			perror("recv");
 			return -1;

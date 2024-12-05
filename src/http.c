@@ -23,6 +23,7 @@ struct http_connection {
 	int socket;
 	char *version_string;
 	struct addrinfo *address_info;
+	int use_ssl;
 };
 struct http_request {
         char *method;
@@ -50,6 +51,9 @@ struct http_connection *http_connect(char *host){
 		return NULL;
 	}
 	memset(connection,0,sizeof(struct http_connection));
+
+	//enable or disable ssl
+	connection->use_ssl = 0;
 	
 	//connect
 	int result = tcp_connect_socket(connection,host,"80");
@@ -231,7 +235,7 @@ struct http_response *http_receive_response(struct http_connection *connection){
 	int status_code = -1;
 	char *response_line;
 	char *response_line_head;
-	long int response_line_size = tcp_recv_to_crlf(connection->socket,&response_line);
+	long int response_line_size = tcp_recv_to_crlf(connection,&response_line);
 	if (response_line_size < 0){
 		fprintf(stderr,"could not get response line.\n");
 		return NULL;
@@ -263,7 +267,7 @@ struct http_response *http_receive_response(struct http_connection *connection){
 	for (;;){
 
 		//for each char in the header
-		int result = tcp_recv_to_crlf(connection->socket,&header_line)+1;
+		int result = tcp_recv_to_crlf(connection,&header_line)+1;
 		if (result < 0){
 			fprintf(stderr,"could not receive header\n");
 			return NULL;
@@ -316,7 +320,7 @@ struct http_response *http_receive_response(struct http_connection *connection){
 		size_t response_body_size = 1;
 		for (;;){ 
 			char *chunk_size_buffer;
-			int result = tcp_recv_to_crlf(connection->socket,&chunk_size_buffer);
+			int result = tcp_recv_to_crlf(connection,&chunk_size_buffer);
 			if (result < 0){
 				fprintf(stderr,"could not receive chunk size\n");
 				return NULL;
@@ -333,15 +337,15 @@ struct http_response *http_receive_response(struct http_connection *connection){
 				return NULL;
 			}
 			//recvall the chunk
-			if (tcp_recvall(connection->socket,chunk,chunk_size) < 0){
+			if (tcp_recvall(connection,chunk,chunk_size) < 0){
 				fprintf(stderr,"could not receive chunk\n");
 				return NULL;
 			}
 			//strip trailing \r\n
 			char end_buffer[2];
-			result = recv(connection->socket,end_buffer,sizeof(end_buffer),0);
+			result = tcp_recvall(connection,end_buffer,sizeof(end_buffer));
 			if (result < 0){
-				perror("recv");
+				fprintf(stderr,"tcp_recvall failed\n");
 				return NULL;
 			}
 			//end of chunk
@@ -362,7 +366,7 @@ struct http_response *http_receive_response(struct http_connection *connection){
 		long int content_length = strtol(http_get_header_value(response,"content-length"),NULL,10);
 		response->body_size = content_length;
 		response->body = malloc(content_length);
-		int status = tcp_recvall(connection->socket,response->body,content_length);//tcp.c
+		int status = tcp_recvall(connection,response->body,content_length);//tcp.c
 		if (status < 0){
 			response->body = NULL;
 			response->body_size = 0;

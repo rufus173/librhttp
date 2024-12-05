@@ -6,6 +6,7 @@ struct http_connection {
 	int socket;
 	char *version_string;
 	struct addrinfo *address_info;
+	int use_ssl;
 };
 struct http_header {
         char *field_name;
