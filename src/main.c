@@ -3,24 +3,87 @@
 #include <string.h>
 #include <stdlib.h>
 #include "http.h"
+//---- errors ---
+#define ERR_FAILURE -1
+#define ERR_SYNTAX -2
+#define ERR_ARG_COUNT -3
+#define ERR_ARG -4
+#define ERR_NOT_FOUND -5
+#define ERR_CANNOT_PROCESS -6
+//---- flags ----
+#define F_SSL 1
+#define F_CONNECTED 2
+
 int command_line_mode();
 int process_command(int argc, char **argv){
-	//                                        print headers  ssl
+	//====================== static env variables ===================
 	static uint32_t flags = 0; // 0 0 0 0 0 0 0              0
+	static HTTP_connection *connection = NULL;
 	
 	if (argc < 1) return 0;
-	//process set command
+	//----------------------- process set command ---------------------
 	if (strcmp(argv[0],"set") == 0){
-		if (strcmp(argv[1],"ssl") == 0) flags |= 1; //set lsb to 1
-		if (strcmp(argv[1],"nossl") == 0) flags &= ~(uint32_t)1; //set lsb tp 0
+		if (argc != 2){
+			printf("Error: set requires 1 arg, and %d given.\n",argc-1);
+			return ERR_ARG_COUNT;
+		}
+		if (strcmp(argv[1],"ssl") == 0) flags |= F_SSL; //set flag to 1
+		if (strcmp(argv[1],"nossl") == 0) flags &= ~(uint32_t)F_SSL; //set flag to 0
+		return 0;
 	}
+	//---------------------- connect and disconnect -------------------
+	if (strcmp(argv[0],"connect") == 0){
+		if ((flags & (uint32_t)F_CONNECTED) > 0){
+			printf("Already connected.\n");
+			return ERR_CANNOT_PROCESS;
+		}
+		char *port = NULL;
+		if (argc < 2){
+			printf("Error: expected 1-2 args but got %d.\n",argc-1);
+			return ERR_ARG_COUNT;
+		}
+		if (argc < 3){
+			port = "80";
+		}else{
+			port = argv[2];
+		}
+		printf("Connecting...\n");
+		connection = http_connect(argv[1],port);
+		if (connection == NULL){
+			printf("Error: could not connect.\n");
+			return ERR_FAILURE;
+		}
+		flags |= F_CONNECTED;
+		printf("connected.\n");
+		return 0;
+	}
+	if (strcmp(argv[0],"disconnect") == 0){ 
+		if ((flags & (uint32_t)F_CONNECTED) == 0){
+			printf("Not connected.\n");
+			return ERR_CANNOT_PROCESS;
+		}
+		//check if connected
+		printf("Disconnecting...\n");
+		int result = http_disconnect(connection);
+		if (result < 0){
+			printf("Failed to disconnect.\n");
+			return ERR_FAILURE;
+		}
+		flags &= ~(uint32_t)F_CONNECTED;
+		printf("Disconnected.\n");
+		return 0;
+	}
+
+	//if we get here without returning, the command wasnt found.
+	printf("Command \"%s\" not found.\n",argv[0]);
+	return ERR_NOT_FOUND -5;
 }
 int main(int argc, char **argv){
 	if (argc == 1){
 		return command_line_mode();
 	}
 	HTTP_connection *connection;
-	connection = http_connect("google.com");
+	connection = http_connect("google.com","80");
 	if (connection == NULL){
 		fprintf(stderr,"could not connect.\n");
 		return 1;
@@ -120,10 +183,7 @@ int command_line_mode(){
 		free(command);
 
 		//(post pre)process arguments
-		for (int i = 0; i < argc; i++){
-			printf("%s\n",argv[i]);
-		}
-		//int result = process_command(argc,argv);
+		int result = process_command(argc,argv);
 
 		//clean up
 		for (int i = 0; i < argc;i++) free(argv[i]);
