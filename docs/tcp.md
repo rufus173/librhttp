@@ -18,3 +18,15 @@ This function is used by providing a socket, and pointer to a `char *` to be all
 ## Return value
 
 Returns size of the buffer(positive) on success and -1 on failure
+
+# `static int tcp_recv(struct http_connection *connection, void *buf, size_t len, int flags)`
+
+## Usage
+
+This function is an abstracted implementation of `recv()`, except it takes a `struct connection *` instead of socket. this allows it to use the normal `recv()` or use ssl for https if it is enabled in the connection struct.
+
+## Return value
+
+This function will return the result of `recv()` if ssl is disabled, or the output from the relevant ssl write or read function if ssl is enabled.
+
+# `int tcp_connect_socket`
