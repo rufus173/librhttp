@@ -1,12 +1,23 @@
 #include <stdio.h>
-#include <char.h>
+#include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
 #include "http.h"
-int tui_mode();
+int command_line_mode();
+int process_command(int argc, char **argv){
+	//                                        print headers  ssl
+	static uint32_t flags = 0; // 0 0 0 0 0 0 0              0
+	
+	if (argc < 1) return 0;
+	//process set command
+	if (strcmp(argv[0],"set") == 0){
+		if (strcmp(argv[1],"ssl") == 0) flags |= 1; //set lsb to 1
+		if (strcmp(argv[1],"nossl") == 0) flags &= ~(uint32_t)1; //set lsb tp 0
+	}
+}
 int main(int argc, char **argv){
 	if (argc == 1){
-		return tui_mode();
+		return command_line_mode();
 	}
 	HTTP_connection *connection;
 	connection = http_connect("google.com");
@@ -37,7 +48,7 @@ int main(int argc, char **argv){
 	http_disconnect(connection);
 	return 0;
 }
-int tui_mode(){
+int command_line_mode(){
 	//======================= logo ===========================
 	printf("\
 		____\n\
@@ -82,20 +93,40 @@ int tui_mode(){
 		//-------------- preprocess command -------------
 		int argc = 0;
 		char **argv = NULL;
-		int command_offset = 0;
-		for (;;){
-			int arglen = 0;
-			for (int arglen = 0;isspace(command+command_offset+arglen);arglen++);
-			printf("arg: %*.s\n",arglen,command+command_offset);
-			break;
+		int arglen = 0;
+		int offset = 0;
+		int start_offset = 0;
+		for (offset = 0;;offset++){
+			if (isspace(command[offset])){
+				argc++;
+				//put verb into argv
+				argv = realloc(argv,(argc)*sizeof(char *));
+				argv[argc-1] = malloc(arglen+1);
+				memcpy(argv[argc-1],command+start_offset,arglen);
+				argv[argc-1][arglen] = '\0';
+				
+				//stop if end of line
+				if (command[offset] == '\n') break; //end of line
+ 				
+				//move to next non whitespace
+				for(;isspace(command[offset]);offset++);
+				arglen = 0;
+				start_offset = offset;
+			}
+			arglen++;
 		}
 
 		//clean up
-		free(command)
-		//clean up
-		for (int i = 0; i < argc;i++){
-			free(argv[i]);
+		free(command);
+
+		//(post pre)process arguments
+		for (int i = 0; i < argc; i++){
+			printf("%s\n",argv[i]);
 		}
+		//int result = process_command(argc,argv);
+
+		//clean up
+		for (int i = 0; i < argc;i++) free(argv[i]);
 		free(argv);
 	}
 	return 0;
