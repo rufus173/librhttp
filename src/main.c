@@ -13,12 +13,14 @@
 //---- flags ----
 #define F_SSL 1
 #define F_CONNECTED 2
+#define F_REQUEST_ALLOCATED 4
 
 int command_line_mode();
 int process_command(int argc, char **argv){
 	//====================== static env variables ===================
 	static uint32_t flags = 0; // 0 0 0 0 0 0 0              0
 	static HTTP_connection *connection = NULL;
+	static HTTP_request *request = NULL;
 	
 	if (argc < 1) return 0;
 	//----------------------- process set command ---------------------
@@ -71,6 +73,41 @@ int process_command(int argc, char **argv){
 		}
 		flags &= ~(uint32_t)F_CONNECTED;
 		printf("Disconnected.\n");
+		return 0;
+	}
+	
+	//---------------- new request -----------------
+	if (strcmp(argv[0],"mkrequest") == 0){
+		if ((flags & (uint32_t)F_REQUEST_ALLOCATED) > 0){//free any existing request
+			printf("Freeing previous request...\n");
+			int status = http_free_request(request);
+			if (status < 0){
+				printf("Error: could not free request.\n");
+				return ERR_CANNOT_PROCESS;
+			}
+			printf("Done.\n");
+		}
+		if (argc != 3){
+			printf("Error: expected 2 arguments.\n");
+			return ERR_ARG_COUNT;
+		}
+		printf("Generating request...\n");
+		request = http_generate_request(argv[1],argv[2]);
+		if (request == NULL){
+			printf("Error: could not generate request.\n");
+			return ERR_CANNOT_PROCESS;
+		}
+		flags |= F_REQUEST_ALLOCATED;
+		printf("Success!\n");
+		return 0;
+	}
+
+	//---------------- help command ----------------
+	if (strcmp(argv[0],"help") == 0){
+		printf("Available commands (\"[optional]\", \"<mandatory>\")\n");
+		printf("help - display help about available commands\n");
+		printf("connect <address> [port] - connect to a server\n");
+		printf("disconnect - disconnects active connection\n");
 		return 0;
 	}
 
