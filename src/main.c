@@ -4,19 +4,69 @@
 #include <stdlib.h>
 #include "http.h"
 #include "command_interface.h"
-int command_line_mode();
+int display_help();
 int main(int argc, char **argv){
+	int return_status = 0;
+	//command line mode
 	if (argc == 1){
 		return command_line_mode();
 	}
+
+	//normal argument mode
+	int processed_argc = 0;
+	char **processed_argv = NULL;
+	//================== process arguments ==================
+	for (int i = 1; i < argc; i++){
+		if (strcmp(argv[i],"--help") == 0) return display_help();
+		//appened non "-args" or "--long-args" to the processed_argv
+		if (argv[i][0] != '-'){
+			processed_argc++;
+			processed_argv = realloc(processed_argv,processed_argc*sizeof(char*));
+			processed_argv[processed_argc-1] = argv[i]; //no need to alloc or dealloc
+		}
+	}
+	if (processed_argc < 1){
+		printf("Not enough arguments.\n");
+		display_help();
+		goto cleanup;
+	}
+	//--------------- url processing ---------------
+	//get the protocol
+	// protocol
+	// |    port
+	// |    |             
+	//"http:80//google.com/google"
+	//     ^  ^ |
+	//     '\0' host
+	char *protocol = NULL;
+	char *port = NULL;
+	char *host = NULL;
+	char *path = NULL;
+	protocol = processed_argv[0];
+	host = strstr(protocol,"://");
+	if (host == NULL){
+		fprintf(stderr,"Bad URL.\n");
+		return_status = -1;
+		goto cleanup;
+	}
+	host += 3;
+	host[-3] = '\0';
+	port = strchr(host,':');
+	if (port == NULL){
+		port = "80"; //fallback if port is not set
+	}
+	path = strchr(host,'/');
+	if (path == NULL) path = "/";
+	printf("protocol:%s\nport:%s\nhost:%s\npath:%s\n",protocol,port,host,path);
+
 	HTTP_connection *connection;
-	connection = http_connect("google.com","80");
+	connection = http_connect(host,port);
 	if (connection == NULL){
 		fprintf(stderr,"could not connect.\n");
 		return 1;
 	}
 	HTTP_request *request;
-	request = http_generate_request("GET","/");
+	request = http_generate_request("GET",path);
 	if (request == NULL){
 		fprintf(stderr,"could not generate request\n");
 		return 1;
@@ -36,85 +86,14 @@ int main(int argc, char **argv){
 		http_free_response(response);
 	}
 	http_disconnect(connection);
-	return 0;
-}
-int command_line_mode(){
-	//======================= logo ===========================
-	printf("\
-		____\n\
-    _______  __/ __/_  _______\n\
-   / ___/ / / / /_/ / / / ___/  ______\n\
-  / /  / /_/ / __/ /_/ (__  )  /_____/\n\
- /_/   \\__,_/_/  \\__,_/____/\n\
-		______\n\
-    _________  / __/ /__      ______ _________\n\
-   / ___/ __ \\/ /_/ __/ | /| / / __ `/ ___/ _ \\\n\
-  (__  ) /_/ / __/ /_ | |/ |/ / /_/ / /  /  __/\n\
- /____/\\____/_/  \\__/ |__/|__/\\__,_/_/   \\___/\n");
-	printf("Welcome to the rufus requests command line. Try \"help\" to start.\n");
 	
-	//======================== mainloop =======================
-	for (;;){
-		//display prompt
-		printf("(rufus requests)");
-		//---------------- get user input -----------
-		char *command = NULL;
-		long int command_size = 1;
-		for (;;){
-			//quit when ctrl-d pressed
-			if (feof(stdin)){
-				printf("\033[2K\r[quit]\n"); //clear line -> carrage return -> print quit
-				return 0;
-			}
-			char input_buffer[1];
-			int result = fread(input_buffer,1,1,stdin);
-			if (result < 0){
-				perror("fread");
-				return 1;
-			}
-			command_size++;
-			command = realloc(command,command_size);
-			command[command_size-2] = *input_buffer;
-			command[command_size-1] = '\0';
-			if (command[command_size-2] == '\n'){
-				break;
-			}
-		}
-		//-------------- preprocess command -------------
-		int argc = 0;
-		char **argv = NULL;
-		int arglen = 0;
-		int offset = 0;
-		int start_offset = 0;
-		for (offset = 0;;offset++){
-			if (isspace(command[offset])){
-				argc++;
-				//put verb into argv
-				argv = realloc(argv,(argc)*sizeof(char *));
-				argv[argc-1] = malloc(arglen+1);
-				memcpy(argv[argc-1],command+start_offset,arglen);
-				argv[argc-1][arglen] = '\0';
-				
-				//stop if end of line
-				if (command[offset] == '\n') break; //end of line
- 				
-				//move to next non whitespace
-				for(;isspace(command[offset]);offset++);
-				arglen = 0;
-				start_offset = offset;
-			}
-			arglen++;
-		}
-
-		//clean up
-		free(command);
-
-		//(post pre)process arguments
-		int result = process_command(argc,argv);
-
-		//clean up
-		for (int i = 0; i < argc;i++) free(argv[i]);
-		free(argv);
-	}
+	//clean up loose pointers
+	cleanup:
+	free(processed_argv);
+	return return_status;
+}
+int display_help(){
+	printf("Usage: http-request [options] <url>\n");
+	printf("options:\n--GET, --HEAD, --POST, --DELETE, --TRACE, --OPTIONS, --PUT, --PATCH : Use said selected method.\n");
 	return 0;
 }

@@ -11,3 +11,4 @@
 #define F_REQUEST_ALLOCATED 4
 
 int process_command(int argc, char **argv);
+int command_line_mode();
