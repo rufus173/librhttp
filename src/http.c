@@ -127,7 +127,7 @@ int http_send_request(struct http_connection *connection,struct http_request *re
 	char *send_buffer = full_request;
 	long long int bytes_to_send = full_request_size;
 	for (;;){
-		int bytes_sent = send(connection->socket,send_buffer,bytes_to_send,0);
+		int bytes_sent = tcp_sendall(connection,send_buffer,bytes_to_send,0);
 		if (bytes_sent < 0){
 			perror("send");
 			return -1;

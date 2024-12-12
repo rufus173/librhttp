@@ -7,6 +7,13 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include "http.h"
+int tcp_sendall(struct http_connection *connection, void *buffer, size_t length, int flags){
+	if (connection->use_ssl == 0){
+		return send(connection->socket,buffer,length,flags);
+	}
+	fprintf(stderr,"connection struct error: did you initialise it?\n");
+	return -1;
+}
 static int tcp_recv(struct http_connection *connection, void *buf, size_t len, int flags){
 	if (connection->use_ssl == 0){
 		return recv(connection->socket,buf,len,flags);
