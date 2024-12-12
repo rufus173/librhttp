@@ -30,7 +30,7 @@ struct http_response {
 typedef struct http_response HTTP_response;
 typedef struct http_request HTTP_request;
 typedef struct http_connection HTTP_connection;
-struct http_connection *http_connect(char *host);
+struct http_connection *http_connect(char *host, char *port);
 int http_disconnect(HTTP_connection *);
 int http_send_request(HTTP_connection *connection,HTTP_request *request);
 HTTP_request *http_generate_request(char *method,char *url);

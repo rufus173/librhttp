@@ -42,7 +42,7 @@ struct http_response {
 //================== prototypes ===============
 int http_request_append_header(struct http_request *request, char *field_name, char *field_value);
 //================== public funcitons =============
-struct http_connection *http_connect(char *host){
+struct http_connection *http_connect(char *host, char *port){
 	//setup returned struct
 	struct http_connection *connection;
 	connection = malloc(sizeof(struct http_connection));
@@ -56,7 +56,7 @@ struct http_connection *http_connect(char *host){
 	connection->use_ssl = 0;
 	
 	//connect
-	int result = tcp_connect_socket(connection,host,"80");
+	int result = tcp_connect_socket(connection,host,port);
 	if (result < 0){
 		fprintf(stderr,"failed to connect\n");
 		return NULL;
