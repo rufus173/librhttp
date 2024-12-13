@@ -4,6 +4,8 @@
 #include <netdb.h>
 struct http_connection {
 	int socket;
+	char *host;
+	char *port;
 	char *version_string;
 	struct addrinfo *address_info;
 	int use_ssl;

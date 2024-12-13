@@ -4,9 +4,11 @@
 #include <stdlib.h>
 #include "http.h"
 #include "command_interface.h"
+#define FLAG_SILENT 1
 int display_help();
 int main(int argc, char **argv){
 	int return_status = 0;
+	uint64_t flags = 0;
 	//command line mode
 	if (argc == 1){
 		return command_line_mode();
@@ -18,6 +20,7 @@ int main(int argc, char **argv){
 	//================== process arguments ==================
 	for (int i = 1; i < argc; i++){
 		if (strcmp(argv[i],"--help") == 0) return display_help();
+		if (strcmp(argv[i],"--silent") == 0) flags |= FLAG_SILENT;
 		//appened non "-args" or "--long-args" to the processed_argv
 		if (argv[i][0] != '-'){
 			processed_argc++;
@@ -77,18 +80,20 @@ int main(int argc, char **argv){
 	if (response == NULL){
 		fprintf(stderr,"failed to get response\n");
 	}else{
-		printf("%d: %s\n",response->status_code,response->status_message);
-		if (response->body == NULL){
-			printf("(no body)\n");
-		}else{
-			printf("%s\n",response->body);
+		if ((flags & FLAG_SILENT) == 0){
+			printf("%d: %s\n",response->status_code,response->status_message);
+			if (response->body == NULL){
+				printf("(no body)\n");
+			}else{
+				printf("%s\n",response->body);
+			}
 		}
 		http_free_response(response);
 	}
-	http_disconnect(connection);
 	
 	//clean up loose pointers
 	cleanup:
+	http_disconnect(connection);
 	free(processed_argv);
 	return return_status;
 }

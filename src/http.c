@@ -1,4 +1,4 @@
-//================ headers =============
+ //================ headers =============
 #include "tcp.h"
 #include <ctype.h>
 #include <stdio.h>
@@ -21,6 +21,8 @@ struct http_header {
 };
 struct http_connection {
 	int socket;
+	char *host;
+	char *port;
 	char *version_string;
 	struct addrinfo *address_info;
 	int use_ssl;
@@ -52,6 +54,19 @@ struct http_connection *http_connect(char *host, char *port){
 	}
 	memset(connection,0,sizeof(struct http_connection));
 
+	//store the host and port
+	connection->host = NULL;
+	connection->port = NULL;
+	//connection->host = malloc(strlen(host)+1);
+	//connection->port = malloc(strlen(port)+1);
+	if (connection->host == NULL || connection->port == NULL){
+		perror("malloc");
+		fprintf(stderr,"could not allocate host and port in connection struct.\n");
+		return NULL;
+	}
+	//strcpy(connection->host,host);
+	//strcpy(connection->port,port);
+
 	//enable or disable ssl
 	connection->use_ssl = 0;
 	
@@ -65,12 +80,14 @@ struct http_connection *http_connect(char *host, char *port){
 	return connection;
 }
 int http_disconnect(struct http_connection *connection){
+	freeaddrinfo(connection->address_info);
+	free(connection->port);
+	free(connection->host);
 	int result = tcp_close_socket(connection);
 	if (result < 0){
 		fprintf(stderr,"tcp_close_socket: could not close\n");
 		return -1;
 	}
-	freeaddrinfo(connection->address_info);
 	free(connection);
 	return 0;
 }
@@ -79,6 +96,7 @@ int http_send_request(struct http_connection *connection,struct http_request *re
 	char content_length_buffer[100]; //its a number
 	snprintf(content_length_buffer,sizeof(content_length_buffer),"%lu",request->body_size);
 	http_request_append_header(request,"content-length",content_length_buffer);
+	http_request_append_header(request,"host",connection->host);
 
 	//setup a buffer for the full request
 	char *full_request = NULL;
@@ -124,7 +142,11 @@ int http_send_request(struct http_connection *connection,struct http_request *re
 
 	//printf("%s",full_request);
 	//send the full request packet
-	char *send_buffer = full_request;
+	int result = tcp_sendall(connection,full_request,full_request_size,0);
+	if (result < 0){
+		fprintf(stderr,"could not send request.\n");
+	}
+	/*char *send_buffer = full_request;
 	long long int bytes_to_send = full_request_size;
 	for (;;){
 		int bytes_sent = tcp_sendall(connection,send_buffer,bytes_to_send,0);
@@ -137,7 +159,7 @@ int http_send_request(struct http_connection *connection,struct http_request *re
 		if (bytes_to_send <= 0){
 			break;
 		}
-	}
+	}*/
 	free(full_request);
 
 	return 0;
@@ -370,6 +392,8 @@ struct http_response *http_receive_response(struct http_connection *connection){
 		if (status < 0){
 			response->body = NULL;
 			response->body_size = 0;
+			fprintf(stderr,"could not receive body.\n");
+			perror("");
 		}
 		//printf("body[%ld]: %s\n",content_length,response->body);
 	}else {
