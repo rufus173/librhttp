@@ -391,13 +391,17 @@ struct http_response *http_receive_response(struct http_connection *connection){
 	}else if (http_get_header_value(response,"content-length") != NULL){
 		long int content_length = strtol(http_get_header_value(response,"content-length"),NULL,10);
 		response->body_size = content_length;
-		response->body = malloc(content_length);
-		int status = tcp_recvall(connection,response->body,content_length);//tcp.c
+		char *response_body_buffer = malloc(content_length+1);
+		int status = tcp_recvall(connection,response_body_buffer,content_length);//tcp.c
 		if (status < 0){
 			response->body = NULL;
 			response->body_size = 0;
 			fprintf(stderr,"could not receive body.\n");
 			perror("");
+		}else{
+			response->body = response_body_buffer;
+			response->body[content_length] = '\0';
+			response_body_buffer = NULL;
 		}
 		//printf("body[%ld]: %s\n",content_length,response->body);
 	}else {

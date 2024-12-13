@@ -94,6 +94,7 @@ int main(int argc, char **argv){
 			if (response->body == NULL){
 				printf("(no body)\n");
 			}else{
+				printf("body size: %lu\n",response->body_size);
 				printf("%s\n",response->body);
 			}
 		}
