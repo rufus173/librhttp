@@ -59,8 +59,12 @@ int main(int argc, char **argv){
 		port = "80"; //fallback if port is not set
 	}
 	path = strchr(host,'/');
-	if (path == NULL) path = "/";
-	printf("protocol:%s\nport:%s\nhost:%s\npath:%s\n",protocol,port,host,path);
+	if (path == NULL) {
+		path = "/";
+	}else{
+		path[0] = '\0'; //we put back the '/' after we are done with the host
+	}
+	printf("protocol:%s\nport:%s\nhost:%s\n",protocol,port,host);
 
 	HTTP_connection *connection;
 	connection = http_connect(host,port);
@@ -68,6 +72,11 @@ int main(int argc, char **argv){
 		fprintf(stderr,"could not connect.\n");
 		return 1;
 	}
+
+	//put back the '/' which was replaced with '\0' to terminate the string without reallocating it
+	if (path[0] == '\0') path[0] = '/';
+	printf("path:%s\n",path);
+
 	HTTP_request *request;
 	request = http_generate_request("GET",path);
 	if (request == NULL){

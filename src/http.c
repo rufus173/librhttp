@@ -57,15 +57,16 @@ struct http_connection *http_connect(char *host, char *port){
 	//store the host and port
 	connection->host = NULL;
 	connection->port = NULL;
-	//connection->host = malloc(strlen(host)+1);
-	//connection->port = malloc(strlen(port)+1);
+	connection->host = malloc(strlen(host)+1);
+	connection->port = malloc(strlen(port)+1);
 	if (connection->host == NULL || connection->port == NULL){
 		perror("malloc");
 		fprintf(stderr,"could not allocate host and port in connection struct.\n");
 		return NULL;
 	}
-	//strcpy(connection->host,host);
-	//strcpy(connection->port,port);
+	strcpy(connection->host,host);
+	strcpy(connection->port,port);
+	
 
 	//enable or disable ssl
 	connection->use_ssl = 0;
@@ -92,10 +93,13 @@ int http_disconnect(struct http_connection *connection){
 	return 0;
 }
 int http_send_request(struct http_connection *connection,struct http_request *request){
-	//add content length header
-	char content_length_buffer[100]; //its a number
-	snprintf(content_length_buffer,sizeof(content_length_buffer),"%lu",request->body_size);
-	http_request_append_header(request,"content-length",content_length_buffer);
+	//add content length header if required
+	if (request->body_size > 0){
+		char content_length_buffer[100]; //its a number
+		snprintf(content_length_buffer,sizeof(content_length_buffer),"%lu",request->body_size);
+		http_request_append_header(request,"content-length",content_length_buffer);
+	}
+
 	http_request_append_header(request,"host",connection->host);
 
 	//setup a buffer for the full request
