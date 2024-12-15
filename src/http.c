@@ -7,6 +7,8 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <string.h>
+#include <openssl/ssl.h>
+#define CONNECT_FLAG_USE_SSL 1
 //================ macros ==============
 #define CHECK_SEND(result,return_val) \
 if (result < 0){\
@@ -26,6 +28,8 @@ struct http_connection {
 	char *version_string;
 	struct addrinfo *address_info;
 	int use_ssl;
+	SSL_CTX *ssl_context;
+	SSL *ssl_connection;
 };
 struct http_request {
         char *method;
@@ -44,7 +48,7 @@ struct http_response {
 //================== prototypes ===============
 int http_request_append_header(struct http_request *request, char *field_name, char *field_value);
 //================== public funcitons =============
-struct http_connection *http_connect(char *host, char *port){
+struct http_connection *http_connect(char *host, char *port, int flags){
 	//setup returned struct
 	struct http_connection *connection;
 	connection = malloc(sizeof(struct http_connection));
@@ -70,6 +74,7 @@ struct http_connection *http_connect(char *host, char *port){
 
 	//enable or disable ssl
 	connection->use_ssl = 0;
+	if ((flags & CONNECT_FLAG_USE_SSL) > 0) connection->use_ssl = 1;
 	
 	//connect
 	int result = tcp_connect_socket(connection,host,port);
@@ -81,7 +86,6 @@ struct http_connection *http_connect(char *host, char *port){
 	return connection;
 }
 int http_disconnect(struct http_connection *connection){
-	freeaddrinfo(connection->address_info);
 	free(connection->port);
 	free(connection->host);
 	int result = tcp_close_socket(connection);
@@ -217,16 +221,16 @@ static struct http_header *get_header(char *field_name,struct http_header *heade
 	if (strcmp(header->field_name,field_name) == 0) return header;
 	return get_header(field_name,header->next);
 }
-//recursive func for freeing linked list
-static void print_headers(struct http_header *header){
+void http_print_headers(struct http_header *header){
 	if (header == NULL){
 		return;
 	}else {
-		print_headers(header->next);
+		http_print_headers(header->next);
 		printf("%s: %s\n",header->field_name,header->field_value);
 		return;
 	}
 }
+//recursive func for freeing linked list
 static int recursive_free_header_node(struct http_header *header){
 	if (header == NULL){
 		return 0; //base condition
@@ -391,6 +395,10 @@ struct http_response *http_receive_response(struct http_connection *connection){
 	}else if (http_get_header_value(response,"content-length") != NULL){
 		long int content_length = strtol(http_get_header_value(response,"content-length"),NULL,10);
 		response->body_size = content_length;
+		if (content_length == 0){
+			response->body = NULL;
+			return response;
+		}
 		char *response_body_buffer = malloc(content_length+1);
 		int status = tcp_recvall(connection,response_body_buffer,content_length);//tcp.c
 		if (status < 0){

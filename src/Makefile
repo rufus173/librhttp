@@ -1,8 +1,8 @@
 CFLAGS=-Wall -Wextra -g
-LFLAGS=#-fsanitize=address
+LFLAGS=-fsanitize=address -lssl -lcrypto
 CC=gcc
 http-requests : tcp.o http.o main.o command_interface.o
-	$(CC) $(LFLAGS) $^ -o $@
+	$(CC) $^ $(LFLAGS) -o $@
 librufushttp.so : tcp.o http.o
 	$(CC) $^ -shared -o $@
 tcp.o : tcp.c

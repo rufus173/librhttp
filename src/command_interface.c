@@ -120,7 +120,7 @@ int process_command(int argc, char **argv){
 			port = argv[2];
 		}
 		printf("Connecting...\n");
-		connection = http_connect(argv[1],port);
+		connection = http_connect(argv[1],port,0);
 		if (connection == NULL){
 			printf("Error: could not connect.\n");
 			return ERR_FAILURE;

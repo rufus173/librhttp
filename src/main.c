@@ -5,6 +5,8 @@
 #include "http.h"
 #include "command_interface.h"
 #define FLAG_SILENT 1
+#define FLAG_ONLY_BODY 2
+#define FLAG_SSL 4
 int display_help();
 int main(int argc, char **argv){
 	int return_status = 0;
@@ -21,6 +23,7 @@ int main(int argc, char **argv){
 	for (int i = 1; i < argc; i++){
 		if (strcmp(argv[i],"--help") == 0) return display_help();
 		if (strcmp(argv[i],"--silent") == 0) flags |= FLAG_SILENT;
+		if (strcmp(argv[i],"--body-only") == 0) flags |= FLAG_ONLY_BODY;
 		//appened non "-args" or "--long-args" to the processed_argv
 		if (argv[i][0] != '-'){
 			processed_argc++;
@@ -57,6 +60,11 @@ int main(int argc, char **argv){
 	port = strchr(host,':');
 	if (port == NULL){
 		port = "80"; //fallback if port is not set
+		if (strcmp(protocol,"http") == 0) port = "80";
+		if (strcmp(protocol,"https") == 0){
+			port = "443";
+			flags |= FLAG_SSL;
+		}
 	}
 	path = strchr(host,'/');
 	if (path == NULL) {
@@ -66,8 +74,10 @@ int main(int argc, char **argv){
 	}
 	printf("protocol:%s\nport:%s\nhost:%s\n",protocol,port,host);
 
+	int connect_flags = 0;
+	if ((flags & FLAG_SSL) > 0) connect_flags |= CONNECT_FLAG_USE_SSL;
 	HTTP_connection *connection;
-	connection = http_connect(host,port);
+	connection = http_connect(host,port,connect_flags);
 	if (connection == NULL){
 		fprintf(stderr,"could not connect.\n");
 		return 1;
@@ -89,12 +99,19 @@ int main(int argc, char **argv){
 	if (response == NULL){
 		fprintf(stderr,"failed to get response\n");
 	}else{
+		//dont output if silent
 		if ((flags & FLAG_SILENT) == 0){
-			printf("%d: %s\n",response->status_code,response->status_message);
+			if ((flags & FLAG_ONLY_BODY) == 0){
+				printf("====== status ======\n");
+				printf("%d: %s\n",response->status_code,response->status_message);
+				printf("====== headers ======\n");
+				http_print_headers(response->header);
+				printf("====== body ======\n");
+			}
 			if (response->body == NULL){
 				printf("(no body)\n");
 			}else{
-				printf("body size: %lu\n",response->body_size);
+				//printf("body size: %lu\n",response->body_size);
 				printf("%s\n",response->body);
 			}
 		}
@@ -110,5 +127,7 @@ int main(int argc, char **argv){
 int display_help(){
 	printf("Usage: http-request [options] <url>\n");
 	printf("options:\n--GET, --HEAD, --POST, --DELETE, --TRACE, --OPTIONS, --PUT, --PATCH : Use said selected method.\n");
+	printf("--silent : dont print response\n");
+	printf("--body-only : only print the body without the formatting\n");
 	return 0;
 }
