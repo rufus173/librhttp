@@ -9,6 +9,7 @@
 #define FLAG_SSL 4
 int display_help();
 int main(int argc, char **argv){
+	char *method = "GET";
 	int return_status = 0;
 	uint64_t flags = 0;
 	//command line mode
@@ -24,6 +25,10 @@ int main(int argc, char **argv){
 		if (strcmp(argv[i],"--help") == 0) return display_help();
 		if (strcmp(argv[i],"--silent") == 0) flags |= FLAG_SILENT;
 		if (strcmp(argv[i],"--body-only") == 0) flags |= FLAG_ONLY_BODY;
+		// for --PUT, --GET and so on we just check for a capital leter at the start of the arg. (im lazy)
+		if ((strlen(argv[i]) > 2) && (isupper(argv[i][2]) != 0)){
+			method = argv[i]+2;
+		}
 		//appened non "-args" or "--long-args" to the processed_argv
 		if (argv[i][0] != '-'){
 			processed_argc++;
@@ -92,7 +97,7 @@ int main(int argc, char **argv){
 	//printf("path:%s\n",path);
 
 	HTTP_request *request;
-	request = http_generate_request("GET",path);
+	request = http_generate_request(method,path);
 	if (request == NULL){
 		fprintf(stderr,"could not generate request\n");
 		return 1;

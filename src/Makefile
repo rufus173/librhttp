@@ -1,5 +1,5 @@
 CFLAGS=-Wall -Wextra -g
-LFLAGS=-fsanitize=address -lssl -lcrypto
+LFLAGS=-lssl -lcrypto
 CC=gcc
 http-requests : tcp.o http.o main.o command_interface.o
 	$(CC) $^ $(LFLAGS) -o $@
