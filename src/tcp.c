@@ -38,8 +38,8 @@ static int tcp_send(struct http_connection *connection, void *buffer, size_t len
 	return -1;
 }
 int tcp_sendall(struct http_connection *connection,void *buffer,size_t length, int flags){
-	printf("length: %lu\n",length);
-	printf("%s",(char *)buffer);
+	//printf("length: %lu\n",length);
+	//printf("%s",(char *)buffer);
 	long long int bytes_to_send = length;
 	char *send_buffer = buffer;
 	for (;;){

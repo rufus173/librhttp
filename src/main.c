@@ -65,17 +65,18 @@ int main(int argc, char **argv){
 			port = "443";
 			flags |= FLAG_SSL;
 		}
+		path = strchr(host,'/');
 	}else{
 		port[0] = '\0';
 		port++;
+		path = strchr(port,'/');
 	}
-	path = strchr(host,'/');
 	if (path == NULL) {
 		path = "/";
 	}else{
 		path[0] = '\0'; //we put back the '/' after we are done with the host
 	}
-	printf("protocol:%s\nport:%s\nhost:%s\n",protocol,port,host);
+	//printf("protocol:%s\nport:%s\nhost:%s\n",protocol,port,host);
 
 	int connect_flags = 0;
 	if ((flags & FLAG_SSL) > 0) connect_flags |= CONNECT_FLAG_USE_SSL;
@@ -88,7 +89,7 @@ int main(int argc, char **argv){
 
 	//put back the '/' which was replaced with '\0' to terminate the string without reallocating it
 	if (path[0] == '\0') path[0] = '/';
-	printf("path:%s\n",path);
+	//printf("path:%s\n",path);
 
 	HTTP_request *request;
 	request = http_generate_request("GET",path);
