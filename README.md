@@ -16,5 +16,11 @@ Working with these structs is made easier with specialised functions to initiali
 
 # Compilation instructions
 
+## Requirements
+
+requires package `libssl-dev`
+
+## Compiling
+
 for compilation of the shared library, `cd src` then `make librufushttp.so`
 for rufus-requests, the standalone library, `cd src` then `make rufus-requests`

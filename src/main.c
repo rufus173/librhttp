@@ -65,6 +65,9 @@ int main(int argc, char **argv){
 			port = "443";
 			flags |= FLAG_SSL;
 		}
+	}else{
+		port[0] = '\0';
+		port++;
 	}
 	path = strchr(host,'/');
 	if (path == NULL) {

@@ -127,7 +127,10 @@ int tcp_connect_socket(struct http_connection *connection, char *address,char *p
 		//perform handshake
 		int result = SSL_connect(connection->ssl_connection);
 		if (result < 1){
-			fprintf(stderr,"failed handshake.\n");
+			fprintf(stderr,"failed handshake with code %ld.\n",SSL_get_verify_result(connection->ssl_connection));
+			if (SSL_get_verify_result(connection->ssl_connection) != X509_V_OK){
+				fprintf(stderr,"verification error: %s\n",X509_verify_cert_error_string(SSL_get_verify_result(connection->ssl_connection)));
+			}
 			return -1;
 		}
 	}
