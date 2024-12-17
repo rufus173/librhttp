@@ -80,6 +80,9 @@ struct http_connection *http_connect(char *host, char *port, int flags){
 	int result = tcp_connect_socket(connection,host,port);
 	if (result < 0){
 		fprintf(stderr,"failed to connect\n");
+		free(connection->host);
+		free(connection->port);
+		free(connection);
 		return NULL;
 	}
 
@@ -153,6 +156,8 @@ int http_send_request(struct http_connection *connection,struct http_request *re
 	int result = tcp_sendall(connection,full_request,full_request_size,0);
 	if (result < 0){
 		fprintf(stderr,"could not send request.\n");
+		free(full_request);
+		return -1;
 	}
 	/*char *send_buffer = full_request;
 	long long int bytes_to_send = full_request_size;
@@ -268,6 +273,7 @@ struct http_response *http_receive_response(struct http_connection *connection){
 	long int response_line_size = tcp_recv_to_crlf(connection,&response_line);
 	if (response_line_size < 0){
 		fprintf(stderr,"could not get response line.\n");
+		free(response);
 		return NULL;
 	}
 	// -------- break down line ------
@@ -300,6 +306,8 @@ struct http_response *http_receive_response(struct http_connection *connection){
 		int result = tcp_recv_to_crlf(connection,&header_line)+1;
 		if (result < 0){
 			fprintf(stderr,"could not receive header\n");
+			free(response->status_message);
+			free(response);
 			return NULL;
 		}
 		//process the header
@@ -353,6 +361,9 @@ struct http_response *http_receive_response(struct http_connection *connection){
 			int result = tcp_recv_to_crlf(connection,&chunk_size_buffer);
 			if (result < 0){
 				fprintf(stderr,"could not receive chunk size\n");
+				free(response->status_message);
+				free(response->body);
+				free(response);
 				return NULL;
 			}
 			long long int chunk_size = strtol(chunk_size_buffer,NULL,16);
@@ -364,11 +375,18 @@ struct http_response *http_receive_response(struct http_connection *connection){
 			char *chunk = malloc(sizeof(char)*(chunk_size+1));
 			if (chunk == NULL){
 				perror("malloc");
+				free(response->status_message);
+				free(response->body);
+				free(response);
 				return NULL;
 			}
 			//recvall the chunk
 			if (tcp_recvall(connection,chunk,chunk_size) < 0){
 				fprintf(stderr,"could not receive chunk\n");
+				free(response->status_message);
+				free(response->body);
+				free(response);
+				free(chunk);
 				return NULL;
 			}
 			//strip trailing \r\n
@@ -376,6 +394,10 @@ struct http_response *http_receive_response(struct http_connection *connection){
 			result = tcp_recvall(connection,end_buffer,sizeof(end_buffer));
 			if (result < 0){
 				fprintf(stderr,"tcp_recvall failed\n");
+				free(response->status_message);
+				free(response->body);
+				free(response);
+				free(chunk);
 				return NULL;
 			}
 			//end of chunk
@@ -384,6 +406,9 @@ struct http_response *http_receive_response(struct http_connection *connection){
 			if (response_body == NULL){
 				perror("realloc");
 				fprintf(stderr,"could not reallocate body\n");
+				free(response->status_message);
+				free(response);
+				free(chunk);
 				return NULL;
 			}
 			memcpy(response_body+response_body_size-1-chunk_size,chunk,chunk_size);

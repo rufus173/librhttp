@@ -5,7 +5,7 @@ http-requests : tcp.o http.o main.o command_interface.o
 	$(CC) $^ $(LFLAGS) -o $@
 librufushttp.so : tcp.o http.o
 	$(CC) $^ -shared -o $@
-tcp.o : tcp.c
+tcp.o : tcp.c http.h
 	$(CC) $(CFLAGS) -fpic -c tcp.c
 http.o : http.c tcp.h
 	$(CC) $(CFLAGS) -fpic -c http.c

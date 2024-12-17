@@ -70,6 +70,7 @@ static int tcp_recv(struct http_connection *connection, void *buf, size_t len, i
 	return -1;
 }
 int tcp_connect_socket(struct http_connection *connection, char *address,char *port){
+	int return_status = 0;
 	//resolve a hostname or url
 	struct addrinfo hints, *address_info;
 	memset(&hints,0,sizeof(struct addrinfo));
@@ -86,6 +87,8 @@ int tcp_connect_socket(struct http_connection *connection, char *address,char *p
 	int sock = socket(AF_INET,SOCK_STREAM,0);
 	if (sock < 0){
 		perror("socket");
+		freeaddrinfo(connection->address_info);
+		connection->address_info = NULL;
 		return -1;
 	}
 	connection->socket = sock;
@@ -94,6 +97,7 @@ int tcp_connect_socket(struct http_connection *connection, char *address,char *p
 	result = connect(sock,address_info->ai_addr,address_info->ai_addrlen);
 	if (result < 0){
 		perror("connect");
+		freeaddrinfo(connection->address_info);
 		return -1;
 	}
 	if (connection->use_ssl == 1){
@@ -107,11 +111,14 @@ int tcp_connect_socket(struct http_connection *connection, char *address,char *p
 		connection->ssl_context = SSL_CTX_new(TLS_client_method());
 		if (connection->ssl_context == NULL){
 			fprintf(stderr,"couldnt initialise new ssl context.\n");
+			freeaddrinfo(connection->address_info);
 			return -1;
 		}
 		connection->ssl_connection = SSL_new(connection->ssl_context);
 		if (connection->ssl_connection == NULL){
 			fprintf(stderr,"Could not create an ssl connection.\n");
+			freeaddrinfo(connection->address_info);
+			SSL_CTX_free(connection->ssl_context);
 			return -1;
 		}
 		//create a bio object and associate with ssl connection
@@ -131,10 +138,13 @@ int tcp_connect_socket(struct http_connection *connection, char *address,char *p
 			if (SSL_get_verify_result(connection->ssl_connection) != X509_V_OK){
 				fprintf(stderr,"verification error: %s\n",X509_verify_cert_error_string(SSL_get_verify_result(connection->ssl_connection)));
 			}
+			freeaddrinfo(connection->address_info);
+			SSL_free(connection->ssl_connection);
+			SSL_CTX_free(connection->ssl_context);
 			return -1;
 		}
 	}
-	return 0;
+	return return_status;
 }
 int tcp_close_socket(struct http_connection *connection){
 	freeaddrinfo(connection->address_info);
@@ -178,6 +188,7 @@ long int tcp_recv_to_crlf(struct http_connection *connection,char **buffer){
 		int result = tcp_recv(connection,&recv_buffer,1,0);
 		if (result < 0){
 			perror("recv");
+			free(final_buffer);
 			return -1;
 		}
 		//make the buffer bigger and insert the new byte
