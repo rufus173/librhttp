@@ -1,7 +1,7 @@
 CFLAGS=-Wall -Wextra -g
 LFLAGS=-lssl -lcrypto
 CC=gcc
-http-requests : tcp.o http.o main.o command_interface.o
+http-request : tcp.o http.o main.o command_interface.o
 	$(CC) $^ $(LFLAGS) -o $@
 librufushttp.so : tcp.o http.o
 	$(CC) $^ -shared -o $@
